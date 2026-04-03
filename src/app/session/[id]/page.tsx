@@ -6,6 +6,8 @@ import { getSocket } from '@/lib/socket';
 import { AudioCapture } from '@/lib/audio-capture';
 import { TextSizeProvider } from '@/components/ui/text-size-provider';
 import { PresentationView } from '@/components/ui/presentation-view';
+import { AudioVisualizer, AudioLevelIndicator } from '@/components/ui/audio-visualizer';
+import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } from '@/components/ui/ai-status';
 import {
   Session,
   TranscriptSegment,
@@ -51,6 +53,9 @@ export default function LiveSessionPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [gapAnalysis, setGapAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [aiStates, setAiStates] = useState<AIProcessState[]>(['idle']);
+  const { notifications, addNotification } = useAINotifications();
 
   // Poll creation
   const [showPollForm, setShowPollForm] = useState(false);
@@ -79,10 +84,25 @@ export default function LiveSessionPage() {
     socket.on('transcript:final', (segment) => {
       setTranscript((prev) => [...prev.filter((s) => !(!s.isFinal && s.speakerId === segment.speakerId)), segment]);
     });
-    socket.on('ai:summary', (s) => setSummaries((p) => [...p, s]));
-    socket.on('ai:questions', (q) => setAiQuestions((p) => [...p, ...q]));
-    socket.on('ai:quotes', (q) => setQuotes((p) => [...p, ...q]));
-    socket.on('ai:topic_shift', (d) => setTopicShifts((p) => [...p, d]));
+    socket.on('ai:summary', (s) => {
+      setSummaries((p) => [...p, s]);
+      setAiStates((p) => p.filter((st) => st !== 'summarizing'));
+      addNotification('summary', 'Ny sammanfattning klar');
+    });
+    socket.on('ai:questions', (q) => {
+      setAiQuestions((p) => [...p, ...q]);
+      setAiStates((p) => p.filter((st) => st !== 'generating_questions'));
+      addNotification('questions', `${q.length} nya fordjupningsfragor`);
+    });
+    socket.on('ai:quotes', (q) => {
+      setQuotes((p) => [...p, ...q]);
+      setAiStates((p) => p.filter((st) => st !== 'extracting_quotes'));
+      if (q.length > 0) addNotification('quotes', `${q.length} citat extraherade`);
+    });
+    socket.on('ai:topic_shift', (d) => {
+      setTopicShifts((p) => [...p, d]);
+      addNotification('topic_shift', `Amnesbyte: ${d.topic}`);
+    });
     socket.on('audience:question_added', (q) => setAudienceQuestions((p) => [...p, q]));
     socket.on('audience:question_voted', ({ questionId, votes }) => {
       setAudienceQuestions((p) => p.map((q) => (q.id === questionId ? { ...q, votes } : q)));
@@ -120,8 +140,10 @@ export default function LiveSessionPage() {
     const ac = new AudioCapture();
     audioCaptureRef.current = ac;
     await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
+    setAudioStream(ac.getStream());
     ac.startRecording();
     setIsRecording(true);
+    setAiStates(['listening']);
     socketRef.current.emit('transcription:start', sessionId);
     setIsLive(true);
   }, [sessionId]);
@@ -129,6 +151,8 @@ export default function LiveSessionPage() {
   const stopSession = useCallback(() => {
     audioCaptureRef.current?.stop();
     setIsRecording(false);
+    setAudioStream(null);
+    setAiStates(['idle']);
     audioCaptureRef.current = null;
     socketRef.current.emit('transcription:stop', sessionId);
     setIsLive(false);
@@ -140,12 +164,17 @@ export default function LiveSessionPage() {
 
   const analyzeGaps = useCallback(async () => {
     setIsAnalyzing(true);
+    setAiStates((p) => [...p.filter((s) => s !== 'idle'), 'analyzing_gaps']);
     try {
       const r = await fetch(`/api/sessions/${sessionId}/gap-analysis`, { method: 'POST' });
       const d = await r.json();
       setGapAnalysis(d.content);
-    } catch { /* ignore */ } finally { setIsAnalyzing(false); }
-  }, [sessionId]);
+      addNotification('gap_analysis', 'Luckanalys klar');
+    } catch { /* ignore */ } finally {
+      setIsAnalyzing(false);
+      setAiStates((p) => p.filter((s) => s !== 'analyzing_gaps'));
+    }
+  }, [sessionId, addNotification]);
 
   const createPoll = useCallback(() => {
     if (!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2) return;
@@ -172,8 +201,8 @@ export default function LiveSessionPage() {
                 {isLive ? 'Vantar pa tal...' : 'Starta sessionen for att borja transkribera'}
               </p>
             )}
-            {transcript.map((seg) => (
-              <div key={seg.id} className={`transcript-line ${!seg.isFinal ? 'opacity-40' : ''}`} style={seg.isFinal ? { borderLeftColor: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' } : {}}>
+            {transcript.map((seg, idx) => (
+              <div key={seg.id} className={`transcript-line ${!seg.isFinal ? 'opacity-40' : ''} ${idx === transcript.length - 1 && seg.isFinal ? 'transcript-line-new' : ''}`} style={seg.isFinal ? { borderLeftColor: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' } : {}}>
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="speaker-name" style={{ color: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' }}>{seg.speakerName}</span>
                   <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{formatTimestamp(seg.timestamp)}</span>
@@ -328,11 +357,23 @@ export default function LiveSessionPage() {
   // Sidebar content
   const sidebar = (
     <>
+      {/* Audio visualizer */}
       {isLive && (
-        <div className="card flex items-center gap-3">
-          <div className="audio-wave"><span></span><span></span><span></span><span></span><span></span></div>
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Lyssnar...</span>
+        <div className="card overflow-hidden" style={{ padding: '0.75rem' }}>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2">
+              <AudioLevelIndicator stream={audioStream} isActive={isLive} />
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Lyssnar</span>
+            </div>
+            <span className="badge-live text-xs">LIVE</span>
+          </div>
+          <AudioVisualizer stream={audioStream} isActive={isLive} variant="waveform" height={48} />
         </div>
+      )}
+
+      {/* AI Status */}
+      {aiStates.filter((s) => s !== 'idle').length > 0 && (
+        <AIStatusBar states={aiStates} compact />
       )}
 
       {/* Engagement */}
@@ -409,6 +450,7 @@ export default function LiveSessionPage() {
       >
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>
+      <AINotificationStack notifications={notifications} />
     </TextSizeProvider>
   );
 }
