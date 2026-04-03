@@ -200,7 +200,11 @@ export class AIProcessor {
           startTime,
           endTime,
           effectiveType,
-          effectiveLabel
+          effectiveLabel,
+          // Pass the most recent summary so AI knows what was already covered
+          this.recentSummaries.length > 0
+            ? this.recentSummaries[this.recentSummaries.length - 1]
+            : undefined
         ),
         session.settings.aiInsightsEnabled
           ? generateQuestions(

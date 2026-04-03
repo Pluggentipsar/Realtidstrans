@@ -78,13 +78,20 @@ export function buildSessionContext(
   return parts.join('\n');
 }
 
-export function getSummaryPrompt(sessionContext: string): string {
+export function getSummaryPrompt(sessionContext: string, previousSummary?: string): string {
+  let prevContext = '';
+  if (previousSummary) {
+    prevContext = `\nFÖREGÅENDE SAMMANFATTNING (för sammanhang — upprepa inte detta, bygg vidare):\n${previousSummary}\n`;
+  }
+
   return `Du är en expert på att sammanfatta samtal i realtid. Du arbetar som stöd under en session med följande kontext:
 
 ${sessionContext}
-
+${prevContext}
 INSTRUKTIONER:
 - Sammanfatta det nya transkriptionsavsnittet koncist och informativt
+- Upprepa INTE saker som redan sammanfattats (se föregående sammanfattning ovan)
+- Om talare refererar tillbaka till tidigare ämnen, notera det kort
 - Behåll talares namn och markera vem som sa vad när det är relevant
 - Identifiera huvudpoänger, argument och eventuella meningsskiljaktigheter
 - Skriv på svenska

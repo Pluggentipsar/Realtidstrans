@@ -141,7 +141,8 @@ export async function generateSummary(
   startTime: number,
   endTime: number,
   type: 'interval' | 'topic_shift' = 'interval',
-  topicLabel?: string
+  topicLabel?: string,
+  previousSummary?: string
 ): Promise<AISummary> {
   const budget = TOKEN_BUDGETS.intervalSummary;
   const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
@@ -151,7 +152,7 @@ export async function generateSummary(
     : `Sammanfatta följande avsnitt av samtalet:\n\n${truncated}`;
 
   const text = await callClaude(
-    sessionId, 'summary', getSummaryPrompt(sessionContext),
+    sessionId, 'summary', getSummaryPrompt(sessionContext, previousSummary),
     userMessage, budget.maxOutputTokens
   );
 
