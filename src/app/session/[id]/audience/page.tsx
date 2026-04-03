@@ -295,6 +295,26 @@ export default function AudiencePage() {
           </div>
         </div>
       )}
+
+      {/* Session ended — show summary + link to dashboard */}
+      {session.status === 'ended' && (
+        <div className="card flex-shrink-0 text-center" style={{ padding: '1rem' }}>
+          <div className="text-2xl mb-2">&#x2705;</div>
+          <p className="font-medium mb-1">Sessionen ar avslutad</p>
+          <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+            Tack for ditt deltagande!
+          </p>
+          {latestSummary && (
+            <div className="text-left mb-3 p-3 rounded-lg" style={{ background: 'var(--color-surface-raised)' }}>
+              <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Sammanfattning</div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 400)}{latestSummary.content.length > 400 ? '...' : ''}</p>
+            </div>
+          )}
+          <a href={`/session/${sessionId}/dashboard`} className="btn-primary text-sm w-full inline-block">
+            Se fullstandigt resultat
+          </a>
+        </div>
+      )}
     </div>
   );
 }
