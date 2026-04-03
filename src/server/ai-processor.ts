@@ -13,6 +13,12 @@ import {
   QuotableMoment,
   SummaryMode,
 } from '@/types';
+import {
+  estimateTokens,
+  truncateToTokenBudget,
+  buildContextWindow,
+  TOKEN_BUDGETS,
+} from '@/lib/token-manager';
 
 interface AIProcessorCallbacks {
   onSummary: (summary: AISummary) => void;
@@ -21,6 +27,9 @@ interface AIProcessorCallbacks {
   onQuotes: (quotes: QuotableMoment[]) => void;
   onTopicShift: (data: { topic: string; timestamp: number }) => void;
 }
+
+// Maximum transcript window for topic shift comparison (~2K tokens each side)
+const MAX_TOPIC_WINDOW_CHARS = 7_000;
 
 export class AIProcessor {
   private sessionId: string;
@@ -33,6 +42,10 @@ export class AIProcessor {
   private previousTopicTranscript: string = '';
   private summaryMode: SummaryMode = 'auto';
 
+  // Sliding window: keep last N summaries as context for AI
+  private recentSummaries: string[] = [];
+  private maxRecentSummaries: number = 5;
+
   constructor(sessionId: string, callbacks: AIProcessorCallbacks) {
     this.sessionId = sessionId;
     this.callbacks = callbacks;
@@ -43,18 +56,17 @@ export class AIProcessor {
     this.lastTopicCheckTimestamp = 0;
     this.summaryMode = mode;
 
-    // Always run interval-based processing as a floor
     if (mode === 'interval' || mode === 'auto') {
       this.summaryInterval = setInterval(() => {
         this.processNewTranscript('interval');
       }, intervalMs);
     }
 
-    // Topic shift detection runs more frequently (every 20s)
+    // Topic shift detection: every 30s (was 20s — reduced to save tokens)
     if (mode === 'topic_shift' || mode === 'auto') {
       this.topicCheckInterval = setInterval(() => {
         this.checkTopicShift();
-      }, 20000);
+      }, 30000);
     }
   }
 
@@ -71,7 +83,6 @@ export class AIProcessor {
 
   setSummaryMode(mode: SummaryMode): void {
     this.summaryMode = mode;
-    // Restart with new mode
     const session = sessionStore.getSession(this.sessionId);
     if (session) {
       this.stop();
@@ -97,16 +108,35 @@ export class AIProcessor {
 
       if (newSegments.length === 0) return;
 
-      const transcriptText = newSegments
+      const rawTranscriptText = newSegments
         .map((s) => `${s.speakerName}: ${s.text}`)
         .join('\n');
+
+      // Token budget check: truncate if too long
+      const transcriptText = truncateToTokenBudget(
+        rawTranscriptText,
+        TOKEN_BUDGETS.intervalSummary.maxInputTokens,
+        'keep_end'
+      );
+
+      const tokensEstimate = estimateTokens(transcriptText);
+      console.log(`[ai-processor] Processing ${newSegments.length} segments (~${tokensEstimate} tokens)`);
 
       const startTime = newSegments[0].timestamp;
       const endTime = newSegments[newSegments.length - 1].timestamp;
 
       const sessionContext = `Titel: ${session.title}\nBeskrivning: ${session.description}\nKontext: ${session.context}`;
 
+      // Build context-aware transcript (includes previous summaries)
+      const contextAwareTranscript = buildContextWindow(
+        sessionStore.getFullFinalTranscript(this.sessionId),
+        transcriptText,
+        TOKEN_BUDGETS.intervalSummary.maxInputTokens,
+        this.recentSummaries
+      );
+
       // Run summary, questions, and quote extraction in parallel
+      // Note: Each function handles its own token truncation
       const promises: [
         Promise<AISummary>,
         Promise<AIQuestion[]>,
@@ -115,14 +145,14 @@ export class AIProcessor {
         generateSummary(
           this.sessionId,
           sessionContext,
-          transcriptText,
+          contextAwareTranscript,
           startTime,
           endTime,
           triggerType,
           topicLabel
         ),
         session.settings.aiInsightsEnabled
-          ? generateQuestions(this.sessionId, sessionContext, transcriptText)
+          ? generateQuestions(this.sessionId, sessionContext, contextAwareTranscript)
           : Promise.resolve([]),
         session.settings.enableQuoteExtraction
           ? extractQuotes(this.sessionId, sessionContext, transcriptText, startTime)
@@ -131,29 +161,36 @@ export class AIProcessor {
 
       const [summary, questions, quotes] = await Promise.all(promises);
 
-      // Store and emit summary
+      // Store summary in sliding window for future context
+      this.recentSummaries.push(summary.content);
+      if (this.recentSummaries.length > this.maxRecentSummaries) {
+        this.recentSummaries.shift();
+      }
+
       sessionStore.addSummary(summary);
       this.callbacks.onSummary(summary);
 
-      // Store and emit questions
       if (questions.length > 0) {
         sessionStore.addAIQuestions(questions);
         this.callbacks.onQuestions(questions);
       }
 
-      // Store and emit quotes
       if (quotes.length > 0) {
         sessionStore.addQuotableMoments(quotes);
         this.callbacks.onQuotes(quotes);
       }
 
-      this.previousTopicTranscript = transcriptText;
+      // Keep topic transcript bounded
+      this.previousTopicTranscript = transcriptText.slice(-MAX_TOPIC_WINDOW_CHARS);
       this.lastProcessedTimestamp = endTime;
 
-      // Check if we should cluster audience questions
       await this.maybeClusterQuestions();
     } catch (error) {
-      console.error('AI processing error:', error);
+      if (error instanceof Error && error.message === 'RATE_LIMITED') {
+        console.warn('[ai-processor] Skipped processing cycle due to rate limit');
+      } else {
+        console.error('AI processing error:', error);
+      }
     } finally {
       this.isProcessing = false;
     }
@@ -166,20 +203,24 @@ export class AIProcessor {
       const session = sessionStore.getSession(this.sessionId);
       if (!session || session.status !== 'live') return;
 
-      // Get transcript from last topic check to now
       const recentSegments = sessionStore.getFinalTranscriptSince(
         this.sessionId,
         this.lastTopicCheckTimestamp
       );
 
-      if (recentSegments.length < 3) return; // Need enough text to detect shift
+      if (recentSegments.length < 3) return;
 
-      const recentText = recentSegments
+      let recentText = recentSegments
         .map((s) => `${s.speakerName}: ${s.text}`)
         .join('\n');
 
+      // Bound the recent text for topic shift
+      if (recentText.length > MAX_TOPIC_WINDOW_CHARS) {
+        recentText = recentText.slice(-MAX_TOPIC_WINDOW_CHARS);
+      }
+
       if (!this.previousTopicTranscript) {
-        this.previousTopicTranscript = recentText;
+        this.previousTopicTranscript = recentText.slice(-MAX_TOPIC_WINDOW_CHARS);
         this.lastTopicCheckTimestamp = recentSegments[recentSegments.length - 1].timestamp;
         return;
       }
@@ -187,6 +228,7 @@ export class AIProcessor {
       const sessionContext = `Titel: ${session.title}\nBeskrivning: ${session.description}\nKontext: ${session.context}`;
 
       const result = await detectTopicShift(
+        this.sessionId,
         sessionContext,
         recentText,
         this.previousTopicTranscript
@@ -200,13 +242,16 @@ export class AIProcessor {
           timestamp: this.lastTopicCheckTimestamp,
         });
 
-        // In auto/topic_shift mode, trigger a summary on topic shift
         if (this.summaryMode !== 'interval') {
           await this.processNewTranscript('topic_shift', result.newTopic);
         }
       }
     } catch (error) {
-      console.error('Topic shift detection error:', error);
+      if (error instanceof Error && error.message === 'RATE_LIMITED') {
+        console.warn('[ai-processor] Skipped topic shift check due to rate limit');
+      } else {
+        console.error('Topic shift detection error:', error);
+      }
     }
   }
 

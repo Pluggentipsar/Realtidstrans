@@ -17,6 +17,14 @@ import {
   getGapAnalysisPrompt,
 } from '@/lib/prompts/system';
 import { generateId } from '@/lib/utils';
+import {
+  estimateTokens,
+  truncateToTokenBudget,
+  chunkText,
+  TOKEN_BUDGETS,
+  RateLimiter,
+  CostTracker,
+} from '@/lib/token-manager';
 
 let client: Anthropic | null = null;
 
@@ -34,6 +42,71 @@ function getClient(): Anthropic {
 
 const MODEL = process.env.AZURE_CLAUDE_DEPLOYMENT || 'claude-sonnet-4-20250514';
 
+// Global rate limiter (shared across all sessions)
+const rateLimiter = new RateLimiter(
+  parseInt(process.env.CLAUDE_MAX_REQUESTS_PER_MINUTE || '30'),
+  parseInt(process.env.CLAUDE_MAX_REQUESTS_PER_HOUR || '500')
+);
+
+// Per-session cost trackers
+const costTrackers = new Map<string, CostTracker>();
+
+function getCostTracker(sessionId: string): CostTracker {
+  if (!costTrackers.has(sessionId)) {
+    costTrackers.set(sessionId, new CostTracker(sessionId));
+  }
+  return costTrackers.get(sessionId)!;
+}
+
+export function getSessionCostSummary(sessionId: string) {
+  return getCostTracker(sessionId).getSummary();
+}
+
+export function getRateLimiterStatus() {
+  return rateLimiter.getUsage();
+}
+
+/**
+ * Wrapper that enforces rate limiting and tracks costs.
+ */
+async function callClaude(
+  sessionId: string,
+  functionName: string,
+  systemPrompt: string,
+  userMessage: string,
+  maxOutputTokens: number
+): Promise<string> {
+  if (!rateLimiter.canMakeRequest()) {
+    console.warn(`[token-manager] Rate limited — skipping ${functionName} for session ${sessionId}`);
+    throw new Error('RATE_LIMITED');
+  }
+
+  const inputTokens = estimateTokens(systemPrompt + userMessage);
+  console.log(`[token-manager] ${functionName}: ~${inputTokens} input tokens, max ${maxOutputTokens} output`);
+
+  rateLimiter.recordRequest();
+
+  const anthropic = getClient();
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: maxOutputTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+
+  const content = response.content[0];
+  const text = content.type === 'text' ? content.text : '';
+
+  // Track actual usage from response
+  const actualInput = response.usage?.input_tokens || inputTokens;
+  const actualOutput = response.usage?.output_tokens || estimateTokens(text);
+  getCostTracker(sessionId).record(functionName, actualInput, actualOutput);
+
+  return text;
+}
+
+// ===== Summary =====
+
 export async function generateSummary(
   sessionId: string,
   sessionContext: string,
@@ -43,78 +116,49 @@ export async function generateSummary(
   type: 'interval' | 'topic_shift' = 'interval',
   topicLabel?: string
 ): Promise<AISummary> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.intervalSummary;
+  const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: getSummaryPrompt(sessionContext),
-    messages: [
-      {
-        role: 'user',
-        content: type === 'topic_shift'
-          ? `Nytt ämne detekterat: "${topicLabel}". Sammanfatta det föregående avsnittet:\n\n${transcriptText}`
-          : `Sammanfatta följande avsnitt av samtalet:\n\n${transcriptText}`,
-      },
-    ],
-  });
+  const userMessage = type === 'topic_shift'
+    ? `Nytt ämne detekterat: "${topicLabel}". Sammanfatta det föregående avsnittet:\n\n${truncated}`
+    : `Sammanfatta följande avsnitt av samtalet:\n\n${truncated}`;
 
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '';
+  const text = await callClaude(
+    sessionId, 'summary', getSummaryPrompt(sessionContext),
+    userMessage, budget.maxOutputTokens
+  );
 
   return {
-    id: generateId(),
-    sessionId,
-    content: text,
-    type,
-    coveringFrom: startTime,
-    coveringTo: endTime,
-    topicLabel,
-    createdAt: new Date(),
+    id: generateId(), sessionId, content: text, type,
+    coveringFrom: startTime, coveringTo: endTime, topicLabel, createdAt: new Date(),
   };
 }
+
+// ===== Questions =====
 
 export async function generateQuestions(
   sessionId: string,
   sessionContext: string,
   transcriptText: string
 ): Promise<AIQuestion[]> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.questions;
+  const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: getQuestionsPrompt(sessionContext),
-    messages: [
-      {
-        role: 'user',
-        content: `Baserat på följande del av samtalet, generera fördjupande frågor:\n\n${transcriptText}`,
-      },
-    ],
-  });
-
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '[]';
+  const text = await callClaude(
+    sessionId, 'questions', getQuestionsPrompt(sessionContext),
+    `Baserat på följande del av samtalet, generera fördjupande frågor:\n\n${truncated}`,
+    budget.maxOutputTokens
+  );
 
   try {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
-
     const parsed = JSON.parse(jsonMatch[0]) as Array<{
-      question: string;
-      category: QuestionCategory;
-      context: string;
-      relevanceScore: number;
+      question: string; category: QuestionCategory; context: string; relevanceScore: number;
     }>;
-
     return parsed.map((q) => ({
-      id: generateId(),
-      sessionId,
-      question: q.question,
-      category: q.category,
-      relevanceScore: q.relevanceScore,
-      context: q.context,
-      createdAt: new Date(),
+      id: generateId(), sessionId, question: q.question, category: q.category,
+      relevanceScore: q.relevanceScore, context: q.context, createdAt: new Date(),
     }));
   } catch {
     console.error('Failed to parse AI questions response');
@@ -122,7 +166,10 @@ export async function generateQuestions(
   }
 }
 
+// ===== Topic Shift Detection =====
+
 export async function detectTopicShift(
+  sessionId: string,
   sessionContext: string,
   recentTranscript: string,
   previousTranscript: string
@@ -133,31 +180,28 @@ export async function detectTopicShift(
   confidence: number;
   transitionType: 'gradual' | 'abrupt' | 'return_to_previous';
 } | null> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.topicShift;
+  const halfBudget = Math.floor(budget.maxInputTokens / 2);
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 512,
-    system: getTopicShiftPrompt(sessionContext),
-    messages: [
-      {
-        role: 'user',
-        content: `FÖREGÅENDE AVSNITT:\n${previousTranscript}\n\nSENASTE AVSNITT:\n${recentTranscript}`,
-      },
-    ],
-  });
-
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '';
+  const truncPrev = truncateToTokenBudget(previousTranscript, halfBudget, 'keep_end');
+  const truncRecent = truncateToTokenBudget(recentTranscript, halfBudget, 'keep_end');
 
   try {
+    const text = await callClaude(
+      sessionId, 'topicShift', getTopicShiftPrompt(sessionContext),
+      `FÖREGÅENDE AVSNITT:\n${truncPrev}\n\nSENASTE AVSNITT:\n${truncRecent}`,
+      budget.maxOutputTokens
+    );
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
     return JSON.parse(jsonMatch[0]);
-  } catch {
-    return null;
+  } catch (e) {
+    if (e instanceof Error && e.message === 'RATE_LIMITED') return null;
+    throw e;
   }
 }
+
+// ===== Quote Extraction =====
 
 export async function extractQuotes(
   sessionId: string,
@@ -165,134 +209,124 @@ export async function extractQuotes(
   transcriptText: string,
   baseTimestamp: number
 ): Promise<QuotableMoment[]> {
-  const anthropic = getClient();
-
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: getQuoteExtractionPrompt(sessionContext),
-    messages: [
-      {
-        role: 'user',
-        content: `Identifiera starka citat ur följande avsnitt:\n\n${transcriptText}`,
-      },
-    ],
-  });
-
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '[]';
+  const budget = TOKEN_BUDGETS.quoteExtraction;
+  const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
 
   try {
+    const text = await callClaude(
+      sessionId, 'quoteExtraction', getQuoteExtractionPrompt(sessionContext),
+      `Identifiera starka citat ur följande avsnitt:\n\n${truncated}`,
+      budget.maxOutputTokens
+    );
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
-
     const parsed = JSON.parse(jsonMatch[0]) as Array<{
-      speakerName: string;
-      quote: string;
-      context: string;
-      category: QuotableMoment['category'];
-      impactScore: number;
+      speakerName: string; quote: string; context: string;
+      category: QuotableMoment['category']; impactScore: number;
     }>;
-
     return parsed.map((q) => ({
-      id: generateId(),
-      sessionId,
-      speakerId: '', // Will be resolved by caller
-      speakerName: q.speakerName,
-      quote: q.quote,
-      context: q.context,
-      timestamp: baseTimestamp,
-      impactScore: q.impactScore,
-      category: q.category,
+      id: generateId(), sessionId, speakerId: '', speakerName: q.speakerName,
+      quote: q.quote, context: q.context, timestamp: baseTimestamp,
+      impactScore: q.impactScore, category: q.category,
     }));
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message === 'RATE_LIMITED') return [];
     console.error('Failed to parse quote extraction response');
     return [];
   }
 }
+
+// ===== Gap Analysis =====
 
 export async function analyzeGaps(
   sessionId: string,
   sessionContext: string,
   fullTranscript: string
 ): Promise<AISummary> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.gapAnalysis;
+  const estimatedTokens = estimateTokens(fullTranscript);
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 2048,
-    system: getGapAnalysisPrompt(sessionContext),
-    messages: [
-      {
-        role: 'user',
-        content: `Analysera hela detta samtal och identifiera luckor, blinda fläckar och missade möjligheter:\n\n${fullTranscript}`,
-      },
-    ],
-  });
+  let textToAnalyze: string;
 
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '';
+  if (estimatedTokens <= budget.maxInputTokens) {
+    textToAnalyze = fullTranscript;
+  } else {
+    // Transcript too long — use chunked summarization approach:
+    // 1. Split into chunks
+    // 2. Summarize each chunk
+    // 3. Run gap analysis on the combined summaries
+    console.log(`[token-manager] Gap analysis: transcript ${estimatedTokens} tokens, chunking...`);
+    const chunks = chunkText(fullTranscript, 30_000);
+    const chunkSummaries: string[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (!rateLimiter.canMakeRequest()) {
+        console.warn('[token-manager] Rate limited during chunked gap analysis');
+        break;
+      }
+      const summary = await callClaude(
+        sessionId, 'gapAnalysis_chunk',
+        'Sammanfatta följande avsnitt av ett samtal. Behåll alla viktiga detaljer, argument, och vem som sa vad.',
+        `Avsnitt ${i + 1}/${chunks.length}:\n\n${chunks[i]}`,
+        1024
+      );
+      chunkSummaries.push(`--- Avsnitt ${i + 1} ---\n${summary}`);
+    }
+
+    textToAnalyze = chunkSummaries.join('\n\n');
+  }
+
+  const finalText = truncateToTokenBudget(textToAnalyze, budget.maxInputTokens, 'keep_both');
+
+  const text = await callClaude(
+    sessionId, 'gapAnalysis', getGapAnalysisPrompt(sessionContext),
+    `Analysera hela detta samtal och identifiera luckor, blinda fläckar och missade möjligheter:\n\n${finalText}`,
+    budget.maxOutputTokens
+  );
 
   return {
-    id: generateId(),
-    sessionId,
-    content: text,
-    type: 'gap_analysis',
-    coveringFrom: 0,
-    coveringTo: Date.now(),
-    createdAt: new Date(),
+    id: generateId(), sessionId, content: text, type: 'gap_analysis',
+    coveringFrom: 0, coveringTo: Date.now(), createdAt: new Date(),
   };
 }
+
+// ===== Audience Question Clustering =====
 
 export async function clusterAudienceQuestions(
   sessionId: string,
   questions: AudienceQuestion[]
 ): Promise<QuestionCluster[]> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.audienceClustering;
 
   const questionsText = questions
     .map((q) => `[${q.id}] ${q.text} (röster: ${q.votes})`)
     .join('\n');
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: getAudienceClusterPrompt(),
-    messages: [
-      {
-        role: 'user',
-        content: `Gruppera och rangordna dessa publikfrågor:\n\n${questionsText}`,
-      },
-    ],
-  });
-
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '[]';
+  const truncated = truncateToTokenBudget(questionsText, budget.maxInputTokens, 'keep_end');
 
   try {
+    const text = await callClaude(
+      sessionId, 'audienceClustering', getAudienceClusterPrompt(),
+      `Gruppera och rangordna dessa publikfrågor:\n\n${truncated}`,
+      budget.maxOutputTokens
+    );
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
-
     const parsed = JSON.parse(jsonMatch[0]) as Array<{
-      theme: string;
-      summary: string;
-      questionIds: string[];
-      priority: number;
+      theme: string; summary: string; questionIds: string[]; priority: number;
     }>;
-
     return parsed.map((c) => ({
-      id: generateId(),
-      sessionId,
-      theme: c.theme,
-      summary: c.summary,
-      questionIds: c.questionIds,
-      priority: c.priority,
+      id: generateId(), sessionId, theme: c.theme,
+      summary: c.summary, questionIds: c.questionIds, priority: c.priority,
     }));
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message === 'RATE_LIMITED') return [];
     console.error('Failed to parse cluster response');
     return [];
   }
 }
+
+// ===== Final Summary (chunked for long sessions) =====
 
 export async function generateFinalSummary(
   sessionId: string,
@@ -300,30 +334,47 @@ export async function generateFinalSummary(
   fullTranscript: string,
   type: 'chronological' | 'thematic'
 ): Promise<AISummary> {
-  const anthropic = getClient();
+  const budget = TOKEN_BUDGETS.finalSummary;
+  const estimatedTokens = estimateTokens(fullTranscript);
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    system: getFinalSummaryPrompt(sessionContext, type),
-    messages: [
-      {
-        role: 'user',
-        content: `Här är hela transkriberingen av sessionen:\n\n${fullTranscript}`,
-      },
-    ],
-  });
+  let textToSummarize: string;
 
-  const content = response.content[0];
-  const text = content.type === 'text' ? content.text : '';
+  if (estimatedTokens <= budget.maxInputTokens) {
+    textToSummarize = fullTranscript;
+  } else {
+    // Long session: chunk and pre-summarize
+    console.log(`[token-manager] Final summary: transcript ${estimatedTokens} tokens, chunking...`);
+    const chunks = chunkText(fullTranscript, 30_000);
+    const chunkSummaries: string[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (!rateLimiter.canMakeRequest()) {
+        console.warn('[token-manager] Rate limited during chunked final summary');
+        break;
+      }
+      const summary = await callClaude(
+        sessionId, 'finalSummary_chunk',
+        'Sammanfatta följande avsnitt av ett samtal noggrant. Behåll alla viktiga poänger, argument, citat och vem som sa vad.',
+        `Avsnitt ${i + 1}/${chunks.length}:\n\n${chunks[i]}`,
+        1024
+      );
+      chunkSummaries.push(`--- Del ${i + 1} ---\n${summary}`);
+    }
+
+    textToSummarize = chunkSummaries.join('\n\n');
+  }
+
+  const finalText = truncateToTokenBudget(textToSummarize, budget.maxInputTokens, 'keep_both');
+
+  const text = await callClaude(
+    sessionId, 'finalSummary', getFinalSummaryPrompt(sessionContext, type),
+    `Här är ${estimatedTokens > budget.maxInputTokens ? 'sammanfattade avsnitt av' : 'hela transkriberingen av'} sessionen:\n\n${finalText}`,
+    budget.maxOutputTokens
+  );
 
   return {
-    id: generateId(),
-    sessionId,
-    content: text,
+    id: generateId(), sessionId, content: text,
     type: type === 'chronological' ? 'final_chronological' : 'final_thematic',
-    coveringFrom: 0,
-    coveringTo: Date.now(),
-    createdAt: new Date(),
+    coveringFrom: 0, coveringTo: Date.now(), createdAt: new Date(),
   };
 }
