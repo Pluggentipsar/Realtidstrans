@@ -172,6 +172,7 @@ export interface AIQuestion {
   relevanceScore: number;
   context: string; // Why this question is relevant
   targetSpeaker?: string; // If directed at a specific person
+  status: 'new' | 'highlighted' | 'used' | 'dismissed'; // Moderator triage
   createdAt: Date;
 }
 
@@ -345,6 +346,10 @@ export interface ServerToClientEvents {
   'session:speaker_identified': (speaker: Speaker) => void;
   'audio:device_joined': (device: AudioDevice) => void;
   'audio:device_left': (deviceId: string) => void;
+  // Moderator → Projector control
+  'projector:set_view': (data: { view: string; content?: string }) => void;
+  'moderator:question_highlighted': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
+  'moderator:question_dismissed': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
   'error': (error: { message: string; code: string }) => void;
 }
 
@@ -368,4 +373,8 @@ export interface ClientToServerEvents {
   'poll:close': (data: { sessionId: string; pollId: string }) => void;
   'settings:update_question_focus': (data: { sessionId: string; focus: QuestionFocus; count?: number }) => void;
   'settings:update_question_target': (data: { sessionId: string; target: QuestionTarget; specificSpeaker?: string }) => void;
+  // Moderator actions
+  'moderator:highlight_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
+  'moderator:dismiss_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
+  'moderator:set_projector_view': (data: { sessionId: string; view: string; content?: string }) => void;
 }

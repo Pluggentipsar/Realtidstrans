@@ -245,6 +245,32 @@ export function setupSocketHandlers(io: TypedServer): void {
       console.log(`[settings] Question target changed to "${target}"${specificSpeaker ? ` (${specificSpeaker})` : ''}`);
     });
 
+    // ===== Moderator Actions =====
+
+    socket.on('moderator:highlight_question', ({ sessionId, questionId, source }) => {
+      // Update question status in store
+      if (source === 'audience') {
+        const questions = sessionStore.getAudienceQuestions(sessionId);
+        const q = questions.find((q) => q.id === questionId);
+        if (q) q.status = 'highlighted';
+      }
+      // Broadcast to all clients (including projector view)
+      io.to(sessionId).emit('moderator:question_highlighted', { questionId, source });
+    });
+
+    socket.on('moderator:dismiss_question', ({ sessionId, questionId, source }) => {
+      if (source === 'audience') {
+        const questions = sessionStore.getAudienceQuestions(sessionId);
+        const q = questions.find((q) => q.id === questionId);
+        if (q) q.status = 'answered';
+      }
+      io.to(sessionId).emit('moderator:question_dismissed', { questionId, source });
+    });
+
+    socket.on('moderator:set_projector_view', ({ sessionId, view, content }) => {
+      io.to(sessionId).emit('projector:set_view', { view, content });
+    });
+
     // ===== Disconnect =====
 
     socket.on('disconnect', () => {

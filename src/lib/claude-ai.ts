@@ -193,6 +193,7 @@ export async function generateQuestions(
       id: generateId(), sessionId, question: q.question, category: q.category,
       relevanceScore: q.relevanceScore, context: q.context,
       targetSpeaker: q.targetSpeaker || undefined,
+      status: 'new' as const,
       createdAt: new Date(),
     }));
   } catch {
