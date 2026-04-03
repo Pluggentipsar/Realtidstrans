@@ -168,13 +168,16 @@ export async function generateQuestions(
   sessionContext: string,
   transcriptText: string,
   focus: QuestionFocusType = 'balanced',
-  count: number = 3
+  count: number = 3,
+  speakerTimes?: Array<{ name: string; percentage: number; wordCount: number }>,
+  targetInfo?: { target: 'anyone' | 'least_active' | 'most_active' | 'specific'; specificSpeaker?: string }
 ): Promise<AIQuestion[]> {
   const budget = TOKEN_BUDGETS.questions;
   const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
 
   const text = await callClaude(
-    sessionId, 'questions', getQuestionsPrompt(sessionContext, focus, count),
+    sessionId, 'questions',
+    getQuestionsPrompt(sessionContext, focus, count, speakerTimes, targetInfo),
     `Baserat på följande del av samtalet, generera fördjupande frågor:\n\n${truncated}`,
     budget.maxOutputTokens
   );
@@ -183,11 +186,14 @@ export async function generateQuestions(
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
     const parsed = JSON.parse(jsonMatch[0]) as Array<{
-      question: string; category: QuestionCategory; context: string; relevanceScore: number;
+      question: string; category: QuestionCategory; context: string;
+      relevanceScore: number; targetSpeaker?: string;
     }>;
     return parsed.map((q) => ({
       id: generateId(), sessionId, question: q.question, category: q.category,
-      relevanceScore: q.relevanceScore, context: q.context, createdAt: new Date(),
+      relevanceScore: q.relevanceScore, context: q.context,
+      targetSpeaker: q.targetSpeaker || undefined,
+      createdAt: new Date(),
     }));
   } catch {
     console.error('Failed to parse AI questions response');

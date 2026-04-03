@@ -33,6 +33,7 @@ export interface SessionSettings {
   enableQuoteExtraction: boolean; // Extract quotable moments
   questionFocus: QuestionFocus; // What type of questions to generate
   questionCount: number; // How many questions per cycle (2-5)
+  questionTarget: QuestionTarget; // Who to direct questions toward
 }
 
 export type SummaryMode = 'interval' | 'topic_shift' | 'auto';
@@ -45,6 +46,20 @@ export type QuestionFocus =
   | 'gaps'              // What's been missed, unexplored areas
   | 'connections'       // Links to broader context, implications
   | 'clarifying';       // Ambiguities, need for precision
+
+// Who to direct AI questions toward
+export type QuestionTarget =
+  | 'anyone'              // No specific target (default)
+  | 'least_active'        // The person who's spoken least
+  | 'most_active'         // Challenge the dominant speaker
+  | 'specific';           // A named speaker (set separately)
+
+export const QUESTION_TARGET_OPTIONS: Array<{ key: QuestionTarget; label: string; icon: string; description: string }> = [
+  { key: 'anyone', label: 'Alla', icon: '\uD83D\uDC65', description: 'Ingen specifik riktning' },
+  { key: 'least_active', label: 'Tystast', icon: '\uD83E\uDD2B', description: 'Rikta till den som pratat minst' },
+  { key: 'most_active', label: 'Mest aktiv', icon: '\uD83D\uDCE2', description: 'Utmana den som dominerar' },
+  { key: 'specific', label: 'Specifik', icon: '\uD83C\uDFAF', description: 'Rikta till en namngiven talare' },
+];
 
 export const QUESTION_FOCUS_OPTIONS: Array<{ key: QuestionFocus; label: string; description: string; icon: string }> = [
   { key: 'balanced', label: 'Balanserad', description: 'Blandning av alla typer', icon: '\u2696\uFE0F' },
@@ -67,6 +82,7 @@ export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
   enableQuoteExtraction: true,
   questionFocus: 'balanced',
   questionCount: 3,
+  questionTarget: 'anyone',
 };
 
 // --- Speakers ---
@@ -155,6 +171,7 @@ export interface AIQuestion {
   category: QuestionCategory;
   relevanceScore: number;
   context: string; // Why this question is relevant
+  targetSpeaker?: string; // If directed at a specific person
   createdAt: Date;
 }
 
@@ -323,6 +340,7 @@ export interface ServerToClientEvents {
   'poll:closed': (poll: Poll) => void;
   'reaction:burst': (burst: ReactionBurst) => void;
   'engagement:update': (snapshot: EngagementSnapshot) => void;
+  'speakers:analytics': (analytics: SpeakerAnalytics[]) => void;
   'session:status_changed': (status: SessionStatus) => void;
   'session:speaker_identified': (speaker: Speaker) => void;
   'audio:device_joined': (device: AudioDevice) => void;
@@ -349,4 +367,5 @@ export interface ClientToServerEvents {
   'poll:vote': (data: { sessionId: string; pollId: string; optionId: string }) => void;
   'poll:close': (data: { sessionId: string; pollId: string }) => void;
   'settings:update_question_focus': (data: { sessionId: string; focus: QuestionFocus; count?: number }) => void;
+  'settings:update_question_target': (data: { sessionId: string; target: QuestionTarget; specificSpeaker?: string }) => void;
 }

@@ -107,6 +107,7 @@ export function setupSocketHandlers(io: TypedServer): void {
         const engagementTracker = new EngagementTracker(sessionId, {
           onUpdate: (snapshot) => io.to(sessionId).emit('engagement:update', snapshot),
           onReactionBurst: (burst) => io.to(sessionId).emit('reaction:burst', burst),
+          onSpeakerAnalytics: (analytics) => io.to(sessionId).emit('speakers:analytics', analytics),
         });
         engagementTracker.start();
         engagementTrackers.set(sessionId, engagementTracker);
@@ -235,6 +236,13 @@ export function setupSocketHandlers(io: TypedServer): void {
         ...(count !== undefined ? { questionCount: count } : {}),
       });
       console.log(`[settings] Question focus changed to "${focus}" (count: ${count || session.settings.questionCount})`);
+    });
+
+    socket.on('settings:update_question_target', ({ sessionId, target, specificSpeaker }) => {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) return;
+      sessionStore.updateSessionSettings(sessionId, { questionTarget: target });
+      console.log(`[settings] Question target changed to "${target}"${specificSpeaker ? ` (${specificSpeaker})` : ''}`);
     });
 
     // ===== Disconnect =====

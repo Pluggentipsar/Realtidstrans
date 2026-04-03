@@ -10,7 +10,8 @@ import { AudioVisualizer, AudioLevelIndicator } from '@/components/ui/audio-visu
 import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } from '@/components/ui/ai-status';
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
 import { QuestionFocusSelector } from '@/components/ui/question-focus-selector';
-import type { QuestionFocus } from '@/types';
+import { LiveSpeakerBar } from '@/components/ui/live-speaker-bar';
+import type { QuestionFocus, QuestionTarget, SpeakerAnalytics } from '@/types';
 import {
   Session,
   TranscriptSegment,
@@ -59,6 +60,9 @@ export default function LiveSessionPage() {
   const [aiStates, setAiStates] = useState<AIProcessState[]>(['idle']);
   const [questionFocus, setQuestionFocus] = useState<QuestionFocus>('balanced');
   const [questionCount, setQuestionCount] = useState(3);
+  const [questionTarget, setQuestionTarget] = useState<QuestionTarget>('anyone');
+  const [specificSpeaker, setSpecificSpeaker] = useState<string | undefined>();
+  const [liveSpeakerAnalytics, setLiveSpeakerAnalytics] = useState<SpeakerAnalytics[]>([]);
   const { notifications, addNotification } = useAINotifications();
 
   // Recording
@@ -123,6 +127,7 @@ export default function LiveSessionPage() {
     socket.on('poll:updated', (p) => setPolls((prev) => prev.map((x) => x.id === p.id ? p : x)));
     socket.on('poll:closed', (p) => setPolls((prev) => prev.map((x) => x.id === p.id ? p : x)));
     socket.on('engagement:update', setEngagement);
+    socket.on('speakers:analytics', setLiveSpeakerAnalytics);
     socket.on('reaction:burst', (b) => setReactionBursts((p) => [...p.slice(-20), b]));
     socket.on('session:status_changed', (status) => {
       setSession((p) => (p ? { ...p, status } : p));
@@ -251,8 +256,13 @@ export default function LiveSessionPage() {
             {aiQuestions.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>AI-fragor visas har under sessionen</p>}
             {aiQuestions.map((q) => (
               <div key={q.id} className="animate-slide-up" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.25rem' }}>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <span className="badge-accent">{QUESTION_CATEGORY_LABELS[q.category]}</span>
+                  {q.targetSpeaker && (
+                    <span className="badge-muted" style={{ borderColor: 'var(--color-accent)' }}>
+                      &#x1F3AF; {q.targetSpeaker}
+                    </span>
+                  )}
                   <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{q.relevanceScore}/10</span>
                 </div>
                 <p className="font-medium text-lg leading-relaxed">{q.question}</p>
@@ -406,6 +416,21 @@ export default function LiveSessionPage() {
             <span key={i} className="badge-muted text-base reaction-float">{REACTION_EMOJIS[b.type]} x{b.count}</span>
           ))}
         </div>
+      )}
+
+      {/* Live speaker time */}
+      {liveSpeakerAnalytics.length > 0 && (
+        <LiveSpeakerBar
+          analytics={liveSpeakerAnalytics}
+          speakerColors={Object.fromEntries(session.speakers.map((s) => [s.id, s.color]))}
+          questionTarget={questionTarget}
+          specificSpeaker={specificSpeaker}
+          onTargetChange={(target, speaker) => {
+            setQuestionTarget(target);
+            setSpecificSpeaker(speaker);
+            socketRef.current.emit('settings:update_question_target', { sessionId, target, specificSpeaker: speaker });
+          }}
+        />
       )}
 
       {/* Question focus selector */}

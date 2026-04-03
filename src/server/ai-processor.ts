@@ -152,13 +152,27 @@ export class AIProcessor {
           topicLabel
         ),
         session.settings.aiInsightsEnabled
-          ? generateQuestions(
-              this.sessionId,
-              sessionContext,
-              contextAwareTranscript,
-              session.settings.questionFocus || 'balanced',
-              session.settings.questionCount || 3
-            )
+          ? (() => {
+              // Get live speaker analytics for question targeting
+              const speakerAnalytics = sessionStore.getSpeakerAnalytics(this.sessionId);
+              const speakerTimes = speakerAnalytics.map((s) => ({
+                name: s.speakerName,
+                percentage: s.speakingPercentage,
+                wordCount: s.wordCount,
+              }));
+              const targetInfo = session.settings.questionTarget && session.settings.questionTarget !== 'anyone'
+                ? { target: session.settings.questionTarget as 'least_active' | 'most_active' | 'specific', specificSpeaker: undefined as string | undefined }
+                : undefined;
+              return generateQuestions(
+                this.sessionId,
+                sessionContext,
+                contextAwareTranscript,
+                session.settings.questionFocus || 'balanced',
+                session.settings.questionCount || 3,
+                speakerTimes.length > 0 ? speakerTimes : undefined,
+                targetInfo
+              );
+            })()
           : Promise.resolve([]),
         session.settings.enableQuoteExtraction
           ? extractQuotes(this.sessionId, sessionContext, transcriptText, startTime)

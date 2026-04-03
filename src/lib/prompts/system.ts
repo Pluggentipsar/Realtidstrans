@@ -61,18 +61,59 @@ const FOCUS_INSTRUCTIONS: Record<QuestionFocusType, string> = {
 - Var behövs konkreta exempel för att illustrera?`,
 };
 
+export interface SpeakerTimeInfo {
+  name: string;
+  percentage: number;
+  wordCount: number;
+}
+
+export interface QuestionTargetInfo {
+  target: 'anyone' | 'least_active' | 'most_active' | 'specific';
+  specificSpeaker?: string;
+}
+
 export function getQuestionsPrompt(
   sessionContext: string,
   focus: QuestionFocusType = 'balanced',
-  count: number = 3
+  count: number = 3,
+  speakerTimes?: SpeakerTimeInfo[],
+  targetInfo?: QuestionTargetInfo
 ): string {
+  let speakerContext = '';
+  if (speakerTimes && speakerTimes.length > 0) {
+    speakerContext = `\nTALARTID (fördelning hittills i samtalet):\n${speakerTimes.map((s) => `- ${s.name}: ${s.percentage.toFixed(0)}% (${s.wordCount} ord)`).join('\n')}\n`;
+  }
+
+  let targetInstruction = '';
+  if (targetInfo) {
+    switch (targetInfo.target) {
+      case 'least_active':
+        if (speakerTimes && speakerTimes.length > 0) {
+          const least = speakerTimes[speakerTimes.length - 1];
+          targetInstruction = `\nRIKTNING: Formulera frågor som naturligt riktar sig till ${least.name} (som har pratat minst, ${least.percentage.toFixed(0)}%). Målet är att inkludera denna person mer i samtalet — ställ frågor som efterfrågar deras specifika perspektiv, erfarenhet eller expertis.\n`;
+        }
+        break;
+      case 'most_active':
+        if (speakerTimes && speakerTimes.length > 0) {
+          const most = speakerTimes[0];
+          targetInstruction = `\nRIKTNING: Rikta frågor som utmanar ${most.name} (som har dominerat samtalet med ${most.percentage.toFixed(0)}% av taltiden). Ställ frågor som ber dem fördjupa, nyansera eller försvara sina positioner.\n`;
+        }
+        break;
+      case 'specific':
+        if (targetInfo.specificSpeaker) {
+          targetInstruction = `\nRIKTNING: Formulera frågor riktade specifikt till ${targetInfo.specificSpeaker}. Ställ frågor som efterfrågar just deras perspektiv, kunskap eller ståndpunkt.\n`;
+        }
+        break;
+    }
+  }
+
   return `Du är en skarp analytiker som hjälper till att fördjupa samtal. Du arbetar som stöd under en session med följande kontext:
 
 ${sessionContext}
-
+${speakerContext}
 INSTRUKTIONER:
 Baserat på det senaste transkriptionsavsnittet, generera ${count} frågor.
-
+${targetInstruction}
 FOKUS:
 ${FOCUS_INSTRUCTIONS[focus]}
 
@@ -81,13 +122,15 @@ För varje fråga, ange:
 2. Kategori: "devils_advocate" | "blind_spot" | "deeper_perspective" | "challenge" | "clarification" | "connection"
 3. En kort motivering (1 mening) om varför frågan är relevant
 4. Relevanspoäng 1-10
+5. Om frågan riktas till en specifik person, ange "targetSpeaker"
 
 Svara i JSON-format:
 [{
   "question": "...",
   "category": "...",
   "context": "...",
-  "relevanceScore": 8
+  "relevanceScore": 8,
+  "targetSpeaker": "Namn eller null"
 }]`;
 }
 

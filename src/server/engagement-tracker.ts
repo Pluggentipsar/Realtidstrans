@@ -3,11 +3,13 @@ import {
   EngagementSnapshot,
   ReactionBurst,
   ReactionType,
+  SpeakerAnalytics,
 } from '@/types';
 
 interface EngagementCallbacks {
   onUpdate: (snapshot: EngagementSnapshot) => void;
   onReactionBurst: (burst: ReactionBurst) => void;
+  onSpeakerAnalytics: (analytics: SpeakerAnalytics[]) => void;
 }
 
 export class EngagementTracker {
@@ -88,6 +90,12 @@ export class EngagementTracker {
 
     sessionStore.addEngagementSnapshot(this.sessionId, snapshot);
     this.callbacks.onUpdate(snapshot);
+
+    // Emit speaker analytics every snapshot
+    const speakerAnalytics = sessionStore.getSpeakerAnalytics(this.sessionId);
+    if (speakerAnalytics.length > 0) {
+      this.callbacks.onSpeakerAnalytics(speakerAnalytics);
+    }
   }
 
   private flushReactions(): void {
