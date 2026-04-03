@@ -152,7 +152,13 @@ export class AIProcessor {
           topicLabel
         ),
         session.settings.aiInsightsEnabled
-          ? generateQuestions(this.sessionId, sessionContext, contextAwareTranscript)
+          ? generateQuestions(
+              this.sessionId,
+              sessionContext,
+              contextAwareTranscript,
+              session.settings.questionFocus || 'balanced',
+              session.settings.questionCount || 3
+            )
           : Promise.resolve([]),
         session.settings.enableQuoteExtraction
           ? extractQuotes(this.sessionId, sessionContext, transcriptText, startTime)

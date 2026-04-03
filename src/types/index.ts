@@ -31,9 +31,29 @@ export interface SessionSettings {
   aiInsightsEnabled: boolean;
   enablePunctuation: boolean; // Auto punctuation & formatting
   enableQuoteExtraction: boolean; // Extract quotable moments
+  questionFocus: QuestionFocus; // What type of questions to generate
+  questionCount: number; // How many questions per cycle (2-5)
 }
 
-export type SummaryMode = 'interval' | 'topic_shift' | 'auto'; // auto = smart switch between both
+export type SummaryMode = 'interval' | 'topic_shift' | 'auto';
+
+// What kind of questions the AI should focus on
+export type QuestionFocus =
+  | 'balanced'          // Mix of all types (default)
+  | 'challenging'       // Devils advocate, challenge assumptions
+  | 'perspectives'      // Blind spots, missing viewpoints, other angles
+  | 'gaps'              // What's been missed, unexplored areas
+  | 'connections'       // Links to broader context, implications
+  | 'clarifying';       // Ambiguities, need for precision
+
+export const QUESTION_FOCUS_OPTIONS: Array<{ key: QuestionFocus; label: string; description: string; icon: string }> = [
+  { key: 'balanced', label: 'Balanserad', description: 'Blandning av alla typer', icon: '\u2696\uFE0F' },
+  { key: 'challenging', label: 'Utmanande', description: 'Djävulens advokat, ifrågasätt antaganden', icon: '\uD83D\uDD25' },
+  { key: 'perspectives', label: 'Perspektiv', description: 'Blinda fläckar, saknade synvinklar', icon: '\uD83D\uDC41\uFE0F' },
+  { key: 'gaps', label: 'Luckor', description: 'Vad har missats, outforskade områden', icon: '\uD83E\uDDE9' },
+  { key: 'connections', label: 'Kopplingar', description: 'Bredare sammanhang, konsekvenser', icon: '\uD83D\uDD17' },
+  { key: 'clarifying', label: 'Förtydligande', description: 'Oklarheter, behov av precision', icon: '\uD83D\uDD0D' },
+];
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
   language: 'sv-SE',
@@ -45,6 +65,8 @@ export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
   aiInsightsEnabled: true,
   enablePunctuation: true,
   enableQuoteExtraction: true,
+  questionFocus: 'balanced',
+  questionCount: 3,
 };
 
 // --- Speakers ---
@@ -326,4 +348,5 @@ export interface ClientToServerEvents {
   'poll:create': (data: { sessionId: string; question: string; options: string[] }) => void;
   'poll:vote': (data: { sessionId: string; pollId: string; optionId: string }) => void;
   'poll:close': (data: { sessionId: string; pollId: string }) => void;
+  'settings:update_question_focus': (data: { sessionId: string; focus: QuestionFocus; count?: number }) => void;
 }

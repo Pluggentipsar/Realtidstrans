@@ -225,6 +225,18 @@ export function setupSocketHandlers(io: TypedServer): void {
       }
     });
 
+    // ===== Settings =====
+
+    socket.on('settings:update_question_focus', ({ sessionId, focus, count }) => {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) return;
+      sessionStore.updateSessionSettings(sessionId, {
+        questionFocus: focus,
+        ...(count !== undefined ? { questionCount: count } : {}),
+      });
+      console.log(`[settings] Question focus changed to "${focus}" (count: ${count || session.settings.questionCount})`);
+    });
+
     // ===== Disconnect =====
 
     socket.on('disconnect', () => {

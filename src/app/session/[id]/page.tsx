@@ -9,6 +9,8 @@ import { PresentationView } from '@/components/ui/presentation-view';
 import { AudioVisualizer, AudioLevelIndicator } from '@/components/ui/audio-visualizer';
 import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } from '@/components/ui/ai-status';
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
+import { QuestionFocusSelector } from '@/components/ui/question-focus-selector';
+import type { QuestionFocus } from '@/types';
 import {
   Session,
   TranscriptSegment,
@@ -55,6 +57,8 @@ export default function LiveSessionPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [aiStates, setAiStates] = useState<AIProcessState[]>(['idle']);
+  const [questionFocus, setQuestionFocus] = useState<QuestionFocus>('balanced');
+  const [questionCount, setQuestionCount] = useState(3);
   const { notifications, addNotification } = useAINotifications();
 
   // Recording
@@ -401,6 +405,28 @@ export default function LiveSessionPage() {
           {reactionBursts.slice(-6).map((b, i) => (
             <span key={i} className="badge-muted text-base reaction-float">{REACTION_EMOJIS[b.type]} x{b.count}</span>
           ))}
+        </div>
+      )}
+
+      {/* Question focus selector */}
+      {isLive && (
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Fragetyp</span>
+          </div>
+          <QuestionFocusSelector
+            currentFocus={questionFocus}
+            currentCount={questionCount}
+            onFocusChange={(focus) => {
+              setQuestionFocus(focus);
+              socketRef.current.emit('settings:update_question_focus', { sessionId, focus, count: questionCount });
+            }}
+            onCountChange={(count) => {
+              setQuestionCount(count);
+              socketRef.current.emit('settings:update_question_focus', { sessionId, focus: questionFocus, count });
+            }}
+            compact
+          />
         </div>
       )}
 

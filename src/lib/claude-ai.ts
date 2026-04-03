@@ -7,6 +7,7 @@ import {
   AudienceQuestion,
   QuotableMoment,
 } from '@/types';
+import type { QuestionFocusType } from '@/lib/prompts/system';
 import {
   getSummaryPrompt,
   getQuestionsPrompt,
@@ -165,13 +166,15 @@ export async function generateSummary(
 export async function generateQuestions(
   sessionId: string,
   sessionContext: string,
-  transcriptText: string
+  transcriptText: string,
+  focus: QuestionFocusType = 'balanced',
+  count: number = 3
 ): Promise<AIQuestion[]> {
   const budget = TOKEN_BUDGETS.questions;
   const truncated = truncateToTokenBudget(transcriptText, budget.maxInputTokens, 'keep_end');
 
   const text = await callClaude(
-    sessionId, 'questions', getQuestionsPrompt(sessionContext),
+    sessionId, 'questions', getQuestionsPrompt(sessionContext, focus, count),
     `Baserat på följande del av samtalet, generera fördjupande frågor:\n\n${truncated}`,
     budget.maxOutputTokens
   );

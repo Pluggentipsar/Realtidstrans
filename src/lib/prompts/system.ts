@@ -16,17 +16,65 @@ INSTRUKTIONER:
 - Max 200 ord per sammanfattning`;
 }
 
-export function getQuestionsPrompt(sessionContext: string): string {
+export type QuestionFocusType = 'balanced' | 'challenging' | 'perspectives' | 'gaps' | 'connections' | 'clarifying';
+
+const FOCUS_INSTRUCTIONS: Record<QuestionFocusType, string> = {
+  balanced: `Generera en blandning av olika typer av frågor:
+- Utmana antaganden (djävulens advokat)
+- Identifiera blinda fläckar eller perspektiv som saknas
+- Fördjupa diskussionen i intressanta riktningar
+- Koppla till bredare sammanhang eller konsekvenser`,
+
+  challenging: `Fokusera på UTMANANDE frågor som:
+- Ifrågasätter grundläggande antaganden i det som sägs
+- Spelar djävulens advokat mot de positioner som intas
+- Testar logiken i argument och slutsatser
+- Lyfter fram motsägelser eller svagheter i resonemang
+- Provocerar eftertanke utan att vara respektlös`,
+
+  perspectives: `Fokusera på SAKNADE PERSPEKTIV:
+- Vilka synvinklar saknas helt i diskussionen?
+- Hur skulle en opponent, kritiker eller motståndare resonera?
+- Vilka grupper/intressenter påverkas men hörs inte?
+- Finns det kulturella, geografiska eller generationsmässiga perspektiv som missas?
+- Hur ser denna fråga ut från andra discipliner?`,
+
+  gaps: `Fokusera på LUCKOR och det som MISSATS:
+- Vilka ämnen har nämnts men inte utforskats?
+- Vilka viktiga frågor har ingen ställt?
+- Finns det uppenbara elefanten-i-rummet-frågor?
+- Vilka data eller bevis saknas för det som påstås?
+- Vad har man undvikit att prata om?`,
+
+  connections: `Fokusera på KOPPLINGAR och KONSEKVENSER:
+- Hur kopplar detta till bredare samhällsfrågor?
+- Vilka oavsedda konsekvenser kan uppstå?
+- Finns det paralleller till andra områden som kan ge insikter?
+- Vad händer om man tänker 5-10 år framåt?
+- Hur hänger de olika ämnena som diskuterats ihop?`,
+
+  clarifying: `Fokusera på FÖRTYDLIGANDE frågor:
+- Var är resonemangen otydliga eller vaga?
+- Vilka begrepp eller termer användes utan att definieras?
+- Var gjordes språng i logiken som behöver förklaras?
+- Vilka implicita antaganden borde göras explicita?
+- Var behövs konkreta exempel för att illustrera?`,
+};
+
+export function getQuestionsPrompt(
+  sessionContext: string,
+  focus: QuestionFocusType = 'balanced',
+  count: number = 3
+): string {
   return `Du är en skarp analytiker som hjälper till att fördjupa samtal. Du arbetar som stöd under en session med följande kontext:
 
 ${sessionContext}
 
 INSTRUKTIONER:
-Baserat på det senaste transkriptionsavsnittet, generera 2-3 frågor som kan:
-- Utmana antaganden som görs (djävulens advokat)
-- Identifiera blinda fläckar eller perspektiv som saknas
-- Fördjupa diskussionen i intressanta riktningar
-- Koppla till bredare sammanhang eller konsekvenser
+Baserat på det senaste transkriptionsavsnittet, generera ${count} frågor.
+
+FOKUS:
+${FOCUS_INSTRUCTIONS[focus]}
 
 För varje fråga, ange:
 1. Frågan
