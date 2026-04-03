@@ -141,9 +141,13 @@ export default function ModeratorPage() {
     socketRef.current.emit('settings:update_question_target', { sessionId, target });
   }, [sessionId]);
 
+  const [pollError, setPollError] = useState('');
   const createPoll = useCallback(() => {
-    if (!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2) return;
-    socketRef.current.emit('poll:create', { sessionId, question: pollQuestion, options: pollOptions.filter((o) => o.trim()) });
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim()) { setPollError('Ange en fraga'); return; }
+    if (validOptions.length < 2) { setPollError('Minst 2 alternativ kravs'); return; }
+    setPollError('');
+    socketRef.current.emit('poll:create', { sessionId, question: pollQuestion, options: validOptions });
     setPollQuestion(''); setPollOptions(['', '']); setShowPollForm(false);
   }, [sessionId, pollQuestion, pollOptions]);
 
@@ -169,7 +173,14 @@ export default function ModeratorPage() {
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold">{session.title}</span>
           {isLive && <span className="badge-live text-xs">LIVE</span>}
-          <span className="font-mono text-xs" style={{ color: 'var(--color-accent)' }}>{session.code}</span>
+          <button
+            onClick={() => navigator.clipboard.writeText(session.code)}
+            className="font-mono text-sm font-bold px-2 py-0.5 rounded transition-all hover:opacity-70"
+            style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)' }}
+            title="Klicka for att kopiera sessionskod"
+          >
+            {session.code}
+          </button>
         </div>
         <div className="flex items-center gap-2">
           {engagement && (
@@ -467,8 +478,9 @@ export default function ModeratorPage() {
                 <div className="flex gap-2">
                   <button onClick={() => setPollOptions([...pollOptions, ''])} className="btn-ghost text-xs" style={{ color: 'var(--color-accent)' }}>+Alt</button>
                   <button onClick={createPoll} className="btn-primary text-xs flex-1">Publicera</button>
-                  <button onClick={() => setShowPollForm(false)} className="btn-ghost text-xs">Avbryt</button>
+                  <button onClick={() => { setShowPollForm(false); setPollError(''); }} className="btn-ghost text-xs">Avbryt</button>
                 </div>
+                {pollError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{pollError}</p>}
               </div>
             )}
 

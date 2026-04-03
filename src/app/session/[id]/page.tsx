@@ -197,8 +197,9 @@ export default function LiveSessionPage() {
   }, [sessionId, addNotification]);
 
   const createPoll = useCallback(() => {
-    if (!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2) return;
-    socketRef.current.emit('poll:create', { sessionId, question: pollQuestion, options: pollOptions.filter((o) => o.trim()) });
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2) return;
+    socketRef.current.emit('poll:create', { sessionId, question: pollQuestion, options: validOptions });
     setPollQuestion(''); setPollOptions(['', '']); setShowPollForm(false);
   }, [sessionId, pollQuestion, pollOptions]);
 

@@ -33,6 +33,7 @@ export default function AudiencePage() {
   const [votedQuestionIds, setVotedQuestionIds] = useState<Set<string>>(new Set());
   const [votedPollIds, setVotedPollIds] = useState<Set<string>>(new Set());
   const [reactionCooldown, setReactionCooldown] = useState(false);
+  const [lastReaction, setLastReaction] = useState<ReactionType | null>(null);
   const [view, setView] = useState<'live' | 'questions' | 'polls'>('live');
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,8 @@ export default function AudiencePage() {
     if (reactionCooldown) return;
     socketRef.current.emit('audience:react', { sessionId, type });
     setReactionCooldown(true);
-    setTimeout(() => setReactionCooldown(false), 800);
+    setLastReaction(type);
+    setTimeout(() => { setReactionCooldown(false); setLastReaction(null); }, 800);
   };
 
   if (!session) {
@@ -97,14 +99,14 @@ export default function AudiencePage() {
   const latestSummary = summaries[summaries.length - 1];
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-3">
+    <div className="max-w-lg mx-auto px-4 py-3 flex flex-col" style={{ height: 'calc(100vh - 3.5rem)' }}>
       {/* Compact header */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h1 className="text-base font-bold">{session.title}</h1>
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
+        <div className="min-w-0">
+          <h1 className="text-base font-bold truncate">{session.title}</h1>
           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{session.hostName}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {session.status === 'live' && <span className="badge-live text-xs">LIVE</span>}
           {session.status === 'ended' && <span className="badge-muted text-xs">Avslutad</span>}
         </div>
@@ -112,21 +114,26 @@ export default function AudiencePage() {
 
       {/* Temperature bar */}
       {engagement && (
-        <div className="temperature-bar mb-3">
+        <div className="temperature-bar mb-2 flex-shrink-0">
           <div className={`temperature-fill ${engagement.temperature > 70 ? 'temperature-fill-hot' : engagement.temperature > 40 ? 'temperature-fill-warm' : 'temperature-fill-cool'}`} style={{ width: `${engagement.temperature}%` }} />
         </div>
       )}
 
-      {/* Reaction bar — big touch targets for mobile */}
+      {/* Reaction bar */}
       {session.status === 'live' && (
-        <div className="flex justify-center gap-2 mb-3">
+        <div className="flex justify-center gap-2 mb-2 flex-shrink-0">
           {(Object.entries(REACTION_EMOJIS) as Array<[ReactionType, string]>).map(([type, emoji]) => (
             <button
               key={type}
               onClick={() => sendReaction(type)}
               disabled={reactionCooldown}
-              className={`text-2xl w-12 h-12 rounded-xl flex items-center justify-center transition-all ${reactionCooldown ? 'opacity-20 scale-90' : 'active:scale-75 hover:scale-110'}`}
-              style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+              className="text-2xl w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-75"
+              style={{
+                background: lastReaction === type ? 'var(--color-accent-subtle)' : 'var(--color-surface-raised)',
+                border: `1px solid ${lastReaction === type ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                opacity: reactionCooldown && lastReaction !== type ? 0.3 : 1,
+                transform: lastReaction === type ? 'scale(1.15)' : undefined,
+              }}
             >
               {emoji}
             </button>
@@ -136,7 +143,7 @@ export default function AudiencePage() {
 
       {/* Floating reaction bursts */}
       {reactionBursts.length > 0 && (
-        <div className="flex justify-center gap-1 mb-2 min-h-[24px]">
+        <div className="flex justify-center gap-1 mb-1 min-h-[20px] flex-shrink-0">
           {reactionBursts.slice(-3).map((b, i) => (
             <span key={i} className="reaction-float text-sm">{REACTION_EMOJIS[b.type]} x{b.count}</span>
           ))}
@@ -145,13 +152,13 @@ export default function AudiencePage() {
 
       {/* Active poll banner */}
       {activePolls.length > 0 && view !== 'polls' && (
-        <button onClick={() => setView('polls')} className="w-full mb-3 card-glow text-sm text-center py-2.5" style={{ cursor: 'pointer' }}>
+        <button onClick={() => setView('polls')} className="w-full mb-2 card-glow text-sm text-center py-2 flex-shrink-0" style={{ cursor: 'pointer' }}>
           Omrostning aktiv — tryck for att rosta
         </button>
       )}
 
       {/* View toggle */}
-      <div className="focus-selector mb-3">
+      <div className="focus-selector mb-2 flex-shrink-0">
         {[
           { key: 'live' as const, label: 'Samtal' },
           { key: 'questions' as const, label: `Fragor (${questions.length})` },
@@ -163,18 +170,16 @@ export default function AudiencePage() {
         ))}
       </div>
 
-      {/* Content */}
-      <div className="card min-h-[35vh] max-h-[45vh] overflow-y-auto mb-3">
+      {/* Content — flex-1 fills remaining space */}
+      <div className="card flex-1 overflow-y-auto mb-2 min-h-0">
         {view === 'live' && (
           <div className="space-y-3">
-            {/* Latest summary */}
             {latestSummary && (
               <div className="animate-fade-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                 <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Senaste sammanfattning</div>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 300)}{latestSummary.content.length > 300 ? '...' : ''}</p>
               </div>
             )}
-            {/* Live transcript */}
             {transcript.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Vantar pa att samtalet startar...</p>}
             {transcript.slice(-30).map((seg) => (
               <div key={seg.id} className="transcript-line" style={{ borderLeftColor: 'var(--color-accent)' }}>
@@ -240,7 +245,9 @@ export default function AudiencePage() {
                       >
                         <div className="flex justify-between text-sm mb-1.5">
                           <span>{opt.text}</span>
-                          {(hasVoted || poll.status === 'closed') && <span style={{ color: 'var(--color-text-secondary)' }}>{pct.toFixed(0)}%</span>}
+                          <span style={{ color: 'var(--color-text-secondary)' }}>
+                            {hasVoted || poll.status === 'closed' ? `${pct.toFixed(0)}%` : ''}
+                          </span>
                         </div>
                         {(hasVoted || poll.status === 'closed') && (
                           <div className="temperature-bar"><div className="temperature-fill temperature-fill-cool" style={{ width: `${pct}%` }} /></div>
@@ -256,17 +263,22 @@ export default function AudiencePage() {
         )}
       </div>
 
-      {/* Question input */}
+      {/* Question input — always at bottom */}
       {session.status === 'live' && (
-        <div className="card space-y-2">
-          <input
-            type="text"
-            className="input text-sm"
-            placeholder="Ditt namn (valfritt)"
-            value={authorName}
-            onChange={(e) => setAuthorName(e.target.value)}
-            style={{ maxWidth: '200px' }}
-          />
+        <div className="card flex-shrink-0" style={{ padding: '0.75rem' }}>
+          <div className="flex gap-2 mb-1.5">
+            <input
+              type="text"
+              className="input text-xs py-1.5"
+              placeholder="Ditt namn (valfritt)"
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
+              style={{ maxWidth: '160px' }}
+            />
+            <span className="text-xs self-center" style={{ color: 'var(--color-text-muted)' }}>
+              {newQuestion.length}/500
+            </span>
+          </div>
           <div className="flex gap-2">
             <input
               type="text"

@@ -164,6 +164,7 @@ export function RecordingControls({
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--color-danger)', animation: 'pulse-live 1.5s ease-in-out infinite' }} />
               <span className="text-sm font-medium">Spelar in</span>
               <span className="text-sm font-mono" style={{ color: 'var(--color-text-secondary)' }}>{formatDuration(duration)}</span>
+              {duration < 3 && <span className="text-xs animate-fade-in" style={{ color: 'var(--color-warning)' }}>Samtalet spelas in</span>}
             </>
           ) : hasRecording ? (
             <>
