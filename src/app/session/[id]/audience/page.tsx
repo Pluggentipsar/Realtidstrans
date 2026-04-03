@@ -33,111 +33,100 @@ export default function AudiencePage() {
   const [votedQuestionIds, setVotedQuestionIds] = useState<Set<string>>(new Set());
   const [votedPollIds, setVotedPollIds] = useState<Set<string>>(new Set());
   const [reactionCooldown, setReactionCooldown] = useState(false);
-  const [view, setView] = useState<'transcript' | 'summary' | 'questions' | 'polls'>('transcript');
+  const [view, setView] = useState<'live' | 'questions' | 'polls'>('live');
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef(getSocket());
 
   useEffect(() => {
-    fetch(`/api/sessions/${sessionId}`)
-      .then((r) => r.json())
-      .then(setSession)
-      .catch(console.error);
+    fetch(`/api/sessions/${sessionId}`).then((r) => r.json()).then(setSession).catch(console.error);
   }, [sessionId]);
 
   useEffect(() => {
     const socket = socketRef.current;
     socket.emit('session:join', { sessionId, role: 'audience' });
 
-    socket.on('transcript:final', (segment) => setTranscript((prev) => [...prev, segment]));
-    socket.on('ai:summary', (summary) => setSummaries((prev) => [...prev, summary]));
-    socket.on('audience:question_added', (question) => setQuestions((prev) => [...prev, question]));
+    socket.on('transcript:final', (seg) => setTranscript((p) => [...p, seg]));
+    socket.on('ai:summary', (s) => setSummaries((p) => [...p, s]));
+    socket.on('audience:question_added', (q) => setQuestions((p) => [...p, q]));
     socket.on('audience:question_voted', ({ questionId, votes }) => {
-      setQuestions((prev) => prev.map((q) => (q.id === questionId ? { ...q, votes } : q)));
+      setQuestions((p) => p.map((q) => q.id === questionId ? { ...q, votes } : q));
     });
-
-    socket.on('poll:created', (poll) => setPolls((prev) => [...prev, poll]));
-    socket.on('poll:updated', (poll) => setPolls((prev) => prev.map((p) => (p.id === poll.id ? poll : p))));
-    socket.on('poll:closed', (poll) => setPolls((prev) => prev.map((p) => (p.id === poll.id ? poll : p))));
-
-    socket.on('reaction:burst', (burst) => setReactionBursts((prev) => [...prev.slice(-10), burst]));
+    socket.on('poll:created', (p) => { setPolls((prev) => [...prev, p]); setView('polls'); });
+    socket.on('poll:updated', (p) => setPolls((prev) => prev.map((x) => x.id === p.id ? p : x)));
+    socket.on('poll:closed', (p) => setPolls((prev) => prev.map((x) => x.id === p.id ? p : x)));
+    socket.on('reaction:burst', (b) => setReactionBursts((p) => [...p.slice(-8), b]));
     socket.on('engagement:update', setEngagement);
-    socket.on('session:status_changed', (status) => {
-      setSession((prev) => (prev ? { ...prev, status } : prev));
-    });
+    socket.on('session:status_changed', (status) => setSession((p) => p ? { ...p, status } : p));
 
-    return () => {
-      socket.emit('session:leave', sessionId);
-      socket.removeAllListeners();
-    };
+    return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
   }, [sessionId]);
 
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [transcript]);
+  useEffect(() => { transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [transcript]);
 
   const submitQuestion = () => {
     if (!newQuestion.trim()) return;
-    socketRef.current.emit('audience:submit_question', {
-      sessionId,
-      text: newQuestion.trim(),
-      authorName: authorName.trim() || undefined,
-    });
+    socketRef.current.emit('audience:submit_question', { sessionId, text: newQuestion.trim(), authorName: authorName.trim() || undefined });
     setNewQuestion('');
   };
 
   const voteQuestion = (questionId: string) => {
     if (votedQuestionIds.has(questionId)) return;
     socketRef.current.emit('audience:vote_question', { sessionId, questionId });
-    setVotedQuestionIds((prev) => new Set(prev).add(questionId));
+    setVotedQuestionIds((p) => new Set(p).add(questionId));
   };
 
   const votePoll = (pollId: string, optionId: string) => {
     if (votedPollIds.has(pollId)) return;
     socketRef.current.emit('poll:vote', { sessionId, pollId, optionId });
-    setVotedPollIds((prev) => new Set(prev).add(pollId));
+    setVotedPollIds((p) => new Set(p).add(pollId));
   };
 
   const sendReaction = (type: ReactionType) => {
     if (reactionCooldown) return;
     socketRef.current.emit('audience:react', { sessionId, type });
     setReactionCooldown(true);
-    setTimeout(() => setReactionCooldown(false), 1000); // 1s cooldown
+    setTimeout(() => setReactionCooldown(false), 800);
   };
 
   if (!session) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-gray-400">Ansluter till session...</div>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-[60vh]"><div style={{ color: 'var(--color-text-muted)' }}>Ansluter...</div></div>;
   }
 
   const activePolls = polls.filter((p) => p.status === 'active');
+  const latestSummary = summaries[summaries.length - 1];
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
-      {/* Header */}
-      <div className="text-center mb-4">
-        <h1 className="text-lg font-bold">{session.title}</h1>
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <span className="text-sm text-gray-400">{session.hostName}</span>
-          {session.status === 'live' && <span className="badge bg-red-900/50 text-red-400 pulse-live text-xs">LIVE</span>}
-          {session.status === 'ended' && <span className="badge bg-gray-700 text-gray-400 text-xs">Avslutad</span>}
+    <div className="max-w-lg mx-auto px-4 py-3">
+      {/* Compact header */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h1 className="text-base font-bold">{session.title}</h1>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{session.hostName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {session.status === 'live' && <span className="badge-live text-xs">LIVE</span>}
+          {session.status === 'ended' && <span className="badge-muted text-xs">Avslutad</span>}
         </div>
       </div>
 
-      {/* Reaction bar */}
+      {/* Temperature bar */}
+      {engagement && (
+        <div className="temperature-bar mb-3">
+          <div className={`temperature-fill ${engagement.temperature > 70 ? 'temperature-fill-hot' : engagement.temperature > 40 ? 'temperature-fill-warm' : 'temperature-fill-cool'}`} style={{ width: `${engagement.temperature}%` }} />
+        </div>
+      )}
+
+      {/* Reaction bar — big touch targets for mobile */}
       {session.status === 'live' && (
-        <div className="flex justify-center gap-3 mb-4">
+        <div className="flex justify-center gap-2 mb-3">
           {(Object.entries(REACTION_EMOJIS) as Array<[ReactionType, string]>).map(([type, emoji]) => (
             <button
               key={type}
               onClick={() => sendReaction(type)}
               disabled={reactionCooldown}
-              className={`text-2xl p-2 rounded-full transition-all ${
-                reactionCooldown ? 'opacity-30' : 'hover:bg-gray-800 hover:scale-125 active:scale-90'
-              }`}
+              className={`text-2xl w-12 h-12 rounded-xl flex items-center justify-center transition-all ${reactionCooldown ? 'opacity-20 scale-90' : 'active:scale-75 hover:scale-110'}`}
+              style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
             >
               {emoji}
             </button>
@@ -145,110 +134,79 @@ export default function AudiencePage() {
         </div>
       )}
 
-      {/* Reaction bursts */}
+      {/* Floating reaction bursts */}
       {reactionBursts.length > 0 && (
-        <div className="flex justify-center gap-1 mb-3">
-          {reactionBursts.slice(-3).map((burst, i) => (
-            <span key={i} className="text-sm animate-bounce">{REACTION_EMOJIS[burst.type]} x{burst.count}</span>
+        <div className="flex justify-center gap-1 mb-2 min-h-[24px]">
+          {reactionBursts.slice(-3).map((b, i) => (
+            <span key={i} className="reaction-float text-sm">{REACTION_EMOJIS[b.type]} x{b.count}</span>
           ))}
         </div>
       )}
 
       {/* Active poll banner */}
       {activePolls.length > 0 && view !== 'polls' && (
-        <button
-          onClick={() => setView('polls')}
-          className="w-full mb-3 p-3 bg-blue-900/30 border border-blue-800/50 rounded-lg text-sm text-blue-300 text-center"
-        >
-          {activePolls.length} aktiv omrostning - tryck for att rosta
+        <button onClick={() => setView('polls')} className="w-full mb-3 card-glow text-sm text-center py-2.5" style={{ cursor: 'pointer' }}>
+          Omrostning aktiv — tryck for att rosta
         </button>
       )}
 
-      {/* Temperature bar */}
-      {engagement && (
-        <div className="mb-4">
-          <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${
-                engagement.temperature > 70 ? 'bg-red-500' : engagement.temperature > 40 ? 'bg-yellow-500' : 'bg-blue-500'
-              }`}
-              style={{ width: `${engagement.temperature}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* View toggle */}
-      <div className="flex gap-1 mb-3 bg-gray-900 rounded-lg p-1">
+      <div className="focus-selector mb-3">
         {[
-          { key: 'transcript' as const, label: 'Samtal' },
-          { key: 'summary' as const, label: 'Sammanfattning' },
-          { key: 'questions' as const, label: 'Fragor' },
-          { key: 'polls' as const, label: `Omrostning${activePolls.length > 0 ? ` (${activePolls.length})` : ''}` },
+          { key: 'live' as const, label: 'Samtal' },
+          { key: 'questions' as const, label: `Fragor (${questions.length})` },
+          { key: 'polls' as const, label: `Polls${activePolls.length > 0 ? ` (${activePolls.length})` : ''}` },
         ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setView(tab.key)}
-            className={`flex-1 py-2 text-xs rounded-md transition-colors ${
-              view === tab.key ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
+          <button key={tab.key} onClick={() => setView(tab.key)} className={`focus-btn ${view === tab.key ? 'focus-btn-active' : ''}`}>
             {tab.label}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="card min-h-[35vh] max-h-[45vh] overflow-y-auto mb-4">
-        {view === 'transcript' && (
-          <div className="space-y-2">
-            {transcript.length === 0 && <p className="text-gray-500 text-center py-10 text-sm">Vantar pa att samtalet ska borja...</p>}
-            {transcript.map((segment) => (
-              <div key={segment.id} className="transcript-line">
-                <span className="text-xs font-medium text-blue-400">{segment.speakerName}</span>
-                <span className="text-xs text-gray-600 ml-2">{formatTimestamp(segment.timestamp)}</span>
-                <p className="text-sm text-gray-200 mt-0.5">{segment.text}</p>
+      <div className="card min-h-[35vh] max-h-[45vh] overflow-y-auto mb-3">
+        {view === 'live' && (
+          <div className="space-y-3">
+            {/* Latest summary */}
+            {latestSummary && (
+              <div className="animate-fade-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Senaste sammanfattning</div>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 300)}{latestSummary.content.length > 300 ? '...' : ''}</p>
+              </div>
+            )}
+            {/* Live transcript */}
+            {transcript.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Vantar pa att samtalet startar...</p>}
+            {transcript.slice(-30).map((seg) => (
+              <div key={seg.id} className="transcript-line" style={{ borderLeftColor: 'var(--color-accent)' }}>
+                <span className="speaker-name text-xs" style={{ color: 'var(--color-accent)' }}>{seg.speakerName}</span>
+                <p className="text-sm leading-relaxed mt-0.5">{seg.text}</p>
               </div>
             ))}
             <div ref={transcriptEndRef} />
           </div>
         )}
 
-        {view === 'summary' && (
-          <div className="space-y-4">
-            {summaries.length === 0 && <p className="text-gray-500 text-center py-10 text-sm">Sammanfattningar visas har</p>}
-            {summaries.map((s) => (
-              <div key={s.id} className="border-b border-gray-800 pb-3 last:border-0">
-                <div className="text-xs text-gray-500 mb-1">
-                  {formatTimestamp(s.coveringFrom)} - {formatTimestamp(s.coveringTo)}
-                  {s.topicLabel && <span className="ml-2 text-purple-400">{s.topicLabel}</span>}
-                </div>
-                <p className="text-sm text-gray-200">{s.content}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {view === 'questions' && (
-          <div className="space-y-3">
-            {questions.length === 0 && <p className="text-gray-500 text-center py-10 text-sm">Inga fragor annu. Stall den forsta!</p>}
+          <div className="space-y-2">
+            {questions.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga fragor annu</p>}
             {[...questions].sort((a, b) => b.votes - a.votes).map((q) => (
-              <div key={q.id} className="flex items-start gap-3 border-b border-gray-800 pb-3 last:border-0">
+              <div key={q.id} className="flex items-start gap-3" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem' }}>
                 <button
                   onClick={() => voteQuestion(q.id)}
                   disabled={votedQuestionIds.has(q.id)}
-                  className={`min-w-[44px] text-center py-1 rounded transition-colors ${
-                    votedQuestionIds.has(q.id)
-                      ? 'bg-blue-900/30 text-blue-400'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700 active:bg-blue-900/30'
-                  }`}
+                  className="min-w-[48px] py-1.5 rounded-lg text-center transition-all active:scale-90"
+                  style={{
+                    background: votedQuestionIds.has(q.id) ? 'var(--color-accent-subtle)' : 'var(--color-surface-raised)',
+                    border: `1px solid ${votedQuestionIds.has(q.id) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    color: votedQuestionIds.has(q.id) ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                  }}
                 >
                   <div className="text-lg font-bold">{q.votes}</div>
                   <div className="text-xs">{votedQuestionIds.has(q.id) ? '\u2713' : '\u25B2'}</div>
                 </button>
                 <div>
-                  <p className="text-sm text-gray-200">{q.text}</p>
-                  {q.authorName && <p className="text-xs text-gray-500 mt-1">- {q.authorName}</p>}
+                  <p className="text-sm leading-relaxed">{q.text}</p>
+                  {q.authorName && <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>— {q.authorName}</p>}
                 </div>
               </div>
             ))}
@@ -257,44 +215,40 @@ export default function AudiencePage() {
 
         {view === 'polls' && (
           <div className="space-y-4">
-            {polls.length === 0 && <p className="text-gray-500 text-center py-10 text-sm">Inga omrostningar annu</p>}
+            {polls.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga omrostningar</p>}
             {polls.map((poll) => {
-              const totalVotes = poll.options.reduce((sum: number, o: PollOption) => sum + o.votes, 0);
+              const total = poll.options.reduce((s: number, o: PollOption) => s + o.votes, 0);
               const hasVoted = votedPollIds.has(poll.id);
               return (
-                <div key={poll.id} className="border-b border-gray-800 pb-4 last:border-0">
+                <div key={poll.id} style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1rem' }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <h4 className="text-sm font-medium">{poll.question}</h4>
-                    {poll.status === 'closed' && <span className="badge bg-gray-700 text-gray-400 text-xs">Stangd</span>}
+                    <h4 className="text-sm font-bold">{poll.question}</h4>
+                    {poll.status === 'closed' && <span className="badge-muted text-xs">Stangd</span>}
                   </div>
                   {poll.options.map((opt: PollOption) => {
-                    const percentage = totalVotes > 0 ? (opt.votes / totalVotes) * 100 : 0;
+                    const pct = total > 0 ? (opt.votes / total) * 100 : 0;
                     return (
                       <button
                         key={opt.id}
                         onClick={() => votePoll(poll.id, opt.id)}
                         disabled={hasVoted || poll.status === 'closed'}
-                        className={`w-full mb-2 p-2 rounded-lg text-left transition-all ${
-                          hasVoted || poll.status === 'closed'
-                            ? 'bg-gray-800/50 cursor-default'
-                            : 'bg-gray-800 hover:bg-gray-700 active:bg-blue-900/30'
-                        }`}
+                        className="w-full mb-2 p-3 rounded-lg text-left transition-all active:scale-[0.98]"
+                        style={{
+                          background: 'var(--color-surface-raised)',
+                          border: `1px solid ${hasVoted || poll.status === 'closed' ? 'var(--color-border-subtle)' : 'var(--color-border)'}`,
+                        }}
                       >
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="flex justify-between text-sm mb-1.5">
                           <span>{opt.text}</span>
-                          {(hasVoted || poll.status === 'closed') && (
-                            <span className="text-gray-400">{percentage.toFixed(0)}%</span>
-                          )}
+                          {(hasVoted || poll.status === 'closed') && <span style={{ color: 'var(--color-text-secondary)' }}>{pct.toFixed(0)}%</span>}
                         </div>
                         {(hasVoted || poll.status === 'closed') && (
-                          <div className="w-full bg-gray-900 rounded-full h-1.5">
-                            <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }} />
-                          </div>
+                          <div className="temperature-bar"><div className="temperature-fill temperature-fill-cool" style={{ width: `${pct}%` }} /></div>
                         )}
                       </button>
                     );
                   })}
-                  <p className="text-xs text-gray-500">{totalVotes} roster</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{total} roster</p>
                 </div>
               );
             })}
@@ -304,27 +258,25 @@ export default function AudiencePage() {
 
       {/* Question input */}
       {session.status === 'live' && (
-        <div className="card">
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              className="input text-sm py-2"
-              placeholder="Ditt namn (valfritt)"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              style={{ maxWidth: '180px' }}
-            />
-          </div>
+        <div className="card space-y-2">
+          <input
+            type="text"
+            className="input text-sm"
+            placeholder="Ditt namn (valfritt)"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            style={{ maxWidth: '200px' }}
+          />
           <div className="flex gap-2">
             <input
               type="text"
-              className="input text-sm py-2"
+              className="input text-sm"
               placeholder="Stall en fraga..."
               value={newQuestion}
               onChange={(e) => setNewQuestion(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submitQuestion()}
             />
-            <button onClick={submitQuestion} disabled={!newQuestion.trim()} className="btn-primary py-2 px-4 text-sm">
+            <button onClick={submitQuestion} disabled={!newQuestion.trim()} className="btn-primary text-sm px-4 flex-shrink-0">
               Skicka
             </button>
           </div>

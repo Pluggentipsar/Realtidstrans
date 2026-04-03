@@ -3,9 +3,8 @@ import Link from 'next/link';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Realtidstrans – AI-stöd för samtal',
-  description:
-    'Realtidstranskribering med AI-sammanfattningar, fördjupande frågor och publikinteraktion.',
+  title: 'Realtidstrans',
+  description: 'AI-drivet stod for intervjuer, panelsamtal och forelasningar.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -19,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#3B82F6',
+  themeColor: '#6366f1',
 };
 
 export default function RootLayout({
@@ -29,25 +28,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="sv">
-      <body className="font-sans bg-gray-950 text-gray-100 min-h-screen">
-        <nav className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
+      <body>
+        {/* Navbar */}
+        <nav className="sticky top-0 z-50" style={{ background: 'rgba(10,10,15,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--color-border-subtle)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-bold text-white">
-                Realtids<span className="text-blue-400">trans</span>
+            <div className="flex justify-between items-center h-14">
+              <Link href="/" className="text-lg font-bold text-white tracking-tight">
+                Realtids<span style={{ color: 'var(--color-accent)' }}>trans</span>
               </Link>
-              <div className="flex gap-4">
-                <Link
-                  href="/session/new"
-                  className="text-sm text-gray-300 hover:text-white transition"
-                >
+              <div className="flex items-center gap-1">
+                <Link href="/session/new" className="btn-ghost text-sm">
                   Ny session
                 </Link>
-                <Link
-                  href="/join"
-                  className="text-sm text-gray-300 hover:text-white transition"
-                >
-                  Gå med
+                <Link href="/join" className="btn-ghost text-sm">
+                  Ga med
                 </Link>
               </div>
             </div>
