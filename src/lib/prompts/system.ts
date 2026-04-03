@@ -1,7 +1,7 @@
 // AI System Prompts for Claude
 // All prompts maintain session context for relevance
 
-import type { SessionBriefing, AgendaItem, PreparedQuestion, SpeakerBio, SessionFormat, SESSION_FORMAT_LABELS } from '@/types';
+import type { SessionBriefing } from '@/types';
 
 /**
  * Build rich context string from session briefing.

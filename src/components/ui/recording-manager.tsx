@@ -106,7 +106,9 @@ export function useRecording({ stream, sessionId, sessionTitle, autoStart = true
   // Auto-start recording when stream becomes available
   useEffect(() => {
     if (autoStart && stream && !state.isRecording && !state.hasRecording) {
-      startRecording();
+      // Defer to avoid synchronous setState in effect
+      const id = requestAnimationFrame(() => startRecording());
+      return () => cancelAnimationFrame(id);
     }
   }, [stream, autoStart, startRecording, state.isRecording, state.hasRecording]);
 

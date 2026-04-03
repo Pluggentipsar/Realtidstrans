@@ -294,7 +294,11 @@ export function AudioLevelIndicator({ stream, isActive }: AudioLevelProps) {
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!stream || !isActive) { setLevel(0); return; }
+    if (!stream || !isActive) {
+      // Reset level outside of render via microtask
+      const id = requestAnimationFrame(() => setLevel(0));
+      return () => cancelAnimationFrame(id);
+    }
 
     const audioCtx = new AudioContext();
     const analyser = audioCtx.createAnalyser();
