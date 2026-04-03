@@ -29,8 +29,14 @@ interface AIProcessorCallbacks {
   onTopicShift: (data: { topic: string; timestamp: number }) => void;
 }
 
-// Maximum transcript window for topic shift comparison (~2K tokens each side)
 const MAX_TOPIC_WINDOW_CHARS = 7_000;
+
+// Minimum seconds of new content required to justify a summary
+const MIN_CONTENT_SECONDS = 15;
+// Minimum segments required for a summary
+const MIN_CONTENT_SEGMENTS = 3;
+// Cooldown after a summary before another can trigger (prevents rapid-fire)
+const SUMMARY_COOLDOWN_MS = 20_000; // 20 seconds
 
 export class AIProcessor {
   private sessionId: string;
@@ -39,9 +45,11 @@ export class AIProcessor {
   private topicCheckInterval: NodeJS.Timeout | null = null;
   private lastProcessedTimestamp: number = 0;
   private lastTopicCheckTimestamp: number = 0;
+  private lastSummaryTime: number = 0; // wall clock of last summary (for cooldown)
   private isProcessing: boolean = false;
   private previousTopicTranscript: string = '';
   private summaryMode: SummaryMode = 'auto';
+  private pendingTopicShift: { topic: string; timestamp: number } | null = null;
 
   // Sliding window: keep last N summaries as context for AI
   private recentSummaries: string[] = [];
@@ -55,7 +63,9 @@ export class AIProcessor {
   start(intervalMs: number = 60000, mode: SummaryMode = 'auto'): void {
     this.lastProcessedTimestamp = 0;
     this.lastTopicCheckTimestamp = 0;
+    this.lastSummaryTime = 0;
     this.summaryMode = mode;
+    this.pendingTopicShift = null;
 
     if (mode === 'interval' || mode === 'auto') {
       this.summaryInterval = setInterval(() => {
@@ -63,7 +73,7 @@ export class AIProcessor {
       }, intervalMs);
     }
 
-    // Topic shift detection: every 30s (was 20s — reduced to save tokens)
+    // Topic shift detection: every 30s
     if (mode === 'topic_shift' || mode === 'auto') {
       this.topicCheckInterval = setInterval(() => {
         this.checkTopicShift();
@@ -96,6 +106,18 @@ export class AIProcessor {
     topicLabel?: string
   ): Promise<void> {
     if (this.isProcessing) return;
+
+    // Cooldown check: don't summarize too rapidly
+    const now = Date.now();
+    if (this.lastSummaryTime > 0 && now - this.lastSummaryTime < SUMMARY_COOLDOWN_MS) {
+      // If this is a topic shift, save it for the next interval cycle
+      if (triggerType === 'topic_shift' && topicLabel) {
+        this.pendingTopicShift = { topic: topicLabel, timestamp: now };
+        console.log(`[ai-processor] Topic shift "${topicLabel}" queued (cooldown active, ${Math.round((SUMMARY_COOLDOWN_MS - (now - this.lastSummaryTime)) / 1000)}s remaining)`);
+      }
+      return;
+    }
+
     this.isProcessing = true;
 
     try {
@@ -107,13 +129,32 @@ export class AIProcessor {
         this.lastProcessedTimestamp
       );
 
-      if (newSegments.length === 0) return;
+      if (newSegments.length < MIN_CONTENT_SEGMENTS) {
+        console.log(`[ai-processor] Only ${newSegments.length} segments — skipping (need ${MIN_CONTENT_SEGMENTS})`);
+        return;
+      }
+
+      // Check minimum time span
+      const timeSpanMs = newSegments[newSegments.length - 1].timestamp - newSegments[0].timestamp;
+      if (timeSpanMs < MIN_CONTENT_SECONDS * 1000) {
+        console.log(`[ai-processor] Only ${Math.round(timeSpanMs / 1000)}s of content — skipping (need ${MIN_CONTENT_SECONDS}s)`);
+        return;
+      }
+
+      // If we have a pending topic shift, use it as the label for this summary
+      let effectiveType = triggerType;
+      let effectiveLabel = topicLabel;
+      if (this.pendingTopicShift && triggerType === 'interval') {
+        effectiveType = 'topic_shift';
+        effectiveLabel = this.pendingTopicShift.topic;
+        this.pendingTopicShift = null;
+        console.log(`[ai-processor] Using queued topic shift: "${effectiveLabel}"`);
+      }
 
       const rawTranscriptText = newSegments
         .map((s) => `${s.speakerName}: ${s.text}`)
         .join('\n');
 
-      // Token budget check: truncate if too long
       const transcriptText = truncateToTokenBudget(
         rawTranscriptText,
         TOKEN_BUDGETS.intervalSummary.maxInputTokens,
@@ -121,14 +162,13 @@ export class AIProcessor {
       );
 
       const tokensEstimate = estimateTokens(transcriptText);
-      console.log(`[ai-processor] Processing ${newSegments.length} segments (~${tokensEstimate} tokens)`);
+      console.log(`[ai-processor] Processing ${newSegments.length} segments (~${tokensEstimate} tokens, ${Math.round(timeSpanMs / 1000)}s, trigger: ${effectiveType})`);
 
       const startTime = newSegments[0].timestamp;
       const endTime = newSegments[newSegments.length - 1].timestamp;
 
       const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
 
-      // Build context-aware transcript (includes previous summaries)
       const contextAwareTranscript = buildContextWindow(
         sessionStore.getFullFinalTranscript(this.sessionId),
         transcriptText,
@@ -136,8 +176,18 @@ export class AIProcessor {
         this.recentSummaries
       );
 
+      // Get speaker analytics for question targeting
+      const speakerAnalytics = sessionStore.getSpeakerAnalytics(this.sessionId);
+      const speakerTimes = speakerAnalytics.map((s) => ({
+        name: s.speakerName,
+        percentage: s.speakingPercentage,
+        wordCount: s.wordCount,
+      }));
+      const targetInfo = session.settings.questionTarget && session.settings.questionTarget !== 'anyone'
+        ? { target: session.settings.questionTarget as 'least_active' | 'most_active' | 'specific', specificSpeaker: undefined as string | undefined }
+        : undefined;
+
       // Run summary, questions, and quote extraction in parallel
-      // Note: Each function handles its own token truncation
       const promises: [
         Promise<AISummary>,
         Promise<AIQuestion[]>,
@@ -149,31 +199,19 @@ export class AIProcessor {
           contextAwareTranscript,
           startTime,
           endTime,
-          triggerType,
-          topicLabel
+          effectiveType,
+          effectiveLabel
         ),
         session.settings.aiInsightsEnabled
-          ? (() => {
-              // Get live speaker analytics for question targeting
-              const speakerAnalytics = sessionStore.getSpeakerAnalytics(this.sessionId);
-              const speakerTimes = speakerAnalytics.map((s) => ({
-                name: s.speakerName,
-                percentage: s.speakingPercentage,
-                wordCount: s.wordCount,
-              }));
-              const targetInfo = session.settings.questionTarget && session.settings.questionTarget !== 'anyone'
-                ? { target: session.settings.questionTarget as 'least_active' | 'most_active' | 'specific', specificSpeaker: undefined as string | undefined }
-                : undefined;
-              return generateQuestions(
-                this.sessionId,
-                sessionContext,
-                contextAwareTranscript,
-                session.settings.questionFocus || 'balanced',
-                session.settings.questionCount || 3,
-                speakerTimes.length > 0 ? speakerTimes : undefined,
-                targetInfo
-              );
-            })()
+          ? generateQuestions(
+              this.sessionId,
+              sessionContext,
+              contextAwareTranscript,
+              session.settings.questionFocus || 'balanced',
+              session.settings.questionCount || 3,
+              speakerTimes.length > 0 ? speakerTimes : undefined,
+              targetInfo
+            )
           : Promise.resolve([]),
         session.settings.enableQuoteExtraction
           ? extractQuotes(this.sessionId, sessionContext, transcriptText, startTime)
@@ -201,9 +239,9 @@ export class AIProcessor {
         this.callbacks.onQuotes(quotes);
       }
 
-      // Keep topic transcript bounded
       this.previousTopicTranscript = transcriptText.slice(-MAX_TOPIC_WINDOW_CHARS);
       this.lastProcessedTimestamp = endTime;
+      this.lastSummaryTime = Date.now();
 
       await this.maybeClusterQuestions();
     } catch (error) {
@@ -235,7 +273,6 @@ export class AIProcessor {
         .map((s) => `${s.speakerName}: ${s.text}`)
         .join('\n');
 
-      // Bound the recent text for topic shift
       if (recentText.length > MAX_TOPIC_WINDOW_CHARS) {
         recentText = recentText.slice(-MAX_TOPIC_WINDOW_CHARS);
       }
@@ -263,6 +300,8 @@ export class AIProcessor {
           timestamp: this.lastTopicCheckTimestamp,
         });
 
+        // In auto/topic_shift mode, trigger a summary on topic shift
+        // The cooldown mechanism will queue it if too soon after last summary
         if (this.summaryMode !== 'interval') {
           await this.processNewTranscript('topic_shift', result.newTopic);
         }
@@ -291,6 +330,8 @@ export class AIProcessor {
   }
 
   async forceProcess(): Promise<void> {
+    // Force bypasses cooldown
+    this.lastSummaryTime = 0;
     await this.processNewTranscript();
   }
 }
