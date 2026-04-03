@@ -4,7 +4,7 @@ import { sessionStore } from '@/server/session-store';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, context, hostName, briefing } = body;
+    const { title, description, context, hostName, briefing, settings } = body;
 
     if (!title || !hostName) {
       return NextResponse.json(
@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
       briefing: briefing || undefined,
     });
 
-    return NextResponse.json(session, { status: 201 });
+    // Apply custom settings if provided
+    if (settings) {
+      sessionStore.updateSessionSettings(session.id, settings);
+    }
+
+    return NextResponse.json(sessionStore.getSession(session.id), { status: 201 });
   } catch {
     return NextResponse.json(
       { error: 'Kunde inte skapa session' },

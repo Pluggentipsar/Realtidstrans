@@ -12,6 +12,7 @@ interface PresentationViewProps {
   focusModes: Array<{ key: FocusMode; label: string; icon: string }>;
   children: (focusMode: FocusMode) => ReactNode;
   sidebarContent?: ReactNode;
+  externalFocusMode?: string | null; // Set by moderator remote control
 }
 
 export function PresentationView({
@@ -21,10 +22,18 @@ export function PresentationView({
   focusModes,
   children,
   sidebarContent,
+  externalFocusMode,
 }: PresentationViewProps) {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [showKeyHints, setShowKeyHints] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>(focusModes[0]?.key || 'transcript');
+
+  // React to moderator remote control
+  useEffect(() => {
+    if (externalFocusMode && focusModes.some((m) => m.key === externalFocusMode)) {
+      setFocusMode(externalFocusMode as FocusMode);
+    }
+  }, [externalFocusMode, focusModes]);
   const [showSidebar, setShowSidebar] = useState(true);
   const { scale } = useTextSize();
 

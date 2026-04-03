@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { getSocket } from '@/lib/socket';
+import { AudioCapture } from '@/lib/audio-capture';
+import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
 import {
   Session,
   TranscriptSegment,
@@ -43,6 +45,16 @@ export default function ModeratorPage() {
   const [speakerAnalytics, setSpeakerAnalytics] = useState<SpeakerAnalytics[]>([]);
   const [reactionBursts, setReactionBursts] = useState<ReactionBurst[]>([]);
   const [isLive, setIsLive] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioCaptureRef = useRef<AudioCapture | null>(null);
+
+  // Recording
+  const recording = useRecording({
+    stream: audioStream,
+    sessionId,
+    sessionTitle: session?.title || 'session',
+  });
 
   // Moderator state
   const [questionFocus, setQuestionFocus] = useState<QuestionFocus>('balanced');
@@ -136,6 +148,32 @@ export default function ModeratorPage() {
     socketRef.current.emit('settings:update_question_focus', { sessionId, focus });
   }, [sessionId]);
 
+  const startSession = useCallback(async () => {
+    setAudioError(null);
+    try {
+      const ac = new AudioCapture();
+      audioCaptureRef.current = ac;
+      await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
+      setAudioStream(ac.getStream());
+      socketRef.current.emit('transcription:start', sessionId);
+      setIsLive(true);
+    } catch (err) {
+      const msg = err instanceof DOMException && err.name === 'NotAllowedError'
+        ? 'Mikrofonbehorighet nekad. Tillat mikrofon i webblasaren.'
+        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon ar ansluten.';
+      setAudioError(msg);
+    }
+  }, [sessionId]);
+
+  const stopSession = useCallback(() => {
+    recording.stopRecording();
+    audioCaptureRef.current?.stop();
+    setAudioStream(null);
+    audioCaptureRef.current = null;
+    socketRef.current.emit('transcription:stop', sessionId);
+    setIsLive(false);
+  }, [sessionId, recording]);
+
   const changeTarget = useCallback((target: QuestionTarget) => {
     setQuestionTarget(target);
     socketRef.current.emit('settings:update_question_target', { sessionId, target });
@@ -188,10 +226,17 @@ export default function ModeratorPage() {
               Temp: {engagement.temperature} {engagement.temperature < 30 ? '(lugnt)' : engagement.temperature < 70 ? '(engagerat)' : '(intensivt)'}
             </span>
           )}
-          {!isLive && session.briefing?.speakerBios && session.briefing.speakerBios.length > 0 && (
-            <a href={`/session/${sessionId}/soundcheck`} className="btn-primary text-xs py-1.5 px-3">Ljudprov</a>
+          {!isLive ? (
+            <>
+              {session.briefing?.speakerBios && session.briefing.speakerBios.length > 0 && (
+                <a href={`/session/${sessionId}/soundcheck`} className="btn-ghost text-xs">Ljudprov</a>
+              )}
+              <button onClick={startSession} className="btn-primary text-xs py-1.5 px-3">Starta session</button>
+            </>
+          ) : (
+            <button onClick={stopSession} className="btn-danger text-xs py-1.5 px-3">Avsluta</button>
           )}
-          <a href={`/session/${sessionId}`} className="btn-ghost text-xs">Projektorvy</a>
+          <a href={`/session/${sessionId}`} className="btn-ghost text-xs">Projektor</a>
           <a href={`/session/${sessionId}/dashboard`} className="btn-ghost text-xs">Dashboard</a>
         </div>
       </div>
@@ -347,6 +392,27 @@ export default function ModeratorPage() {
 
         {/* RIGHT: Audience questions + Polls + Controls */}
         <div className="overflow-y-auto">
+          {/* Audio error */}
+          {audioError && (
+            <div className="p-3" style={{ background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid var(--color-danger)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{audioError}</p>
+            </div>
+          )}
+
+          {/* Recording */}
+          {(recording.isRecording || recording.hasRecording) && (
+            <div className="p-2" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+              <RecordingControls
+                isRecording={recording.isRecording}
+                hasRecording={recording.hasRecording}
+                duration={recording.duration}
+                blobUrl={recording.blobUrl}
+                onStop={() => recording.stopRecording()}
+                onDownload={() => recording.downloadRecording()}
+              />
+            </div>
+          )}
+
           {/* Projector control */}
           <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
             <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>PROJEKTORVY</h3>

@@ -58,7 +58,7 @@ export default function NewSessionPage() {
         body: JSON.stringify({
           title,
           description,
-          context: topic, // Legacy field
+          context: topic,
           hostName,
           briefing: {
             topic,
@@ -70,6 +70,13 @@ export default function NewSessionPage() {
             backgroundMaterial,
             avoidTopics,
             customInstructions,
+          },
+          settings: {
+            language,
+            summaryMode,
+            summaryIntervalSeconds: summaryInterval,
+            aiInsightsEnabled: aiInsights,
+            enableQuoteExtraction,
           },
         }),
       });

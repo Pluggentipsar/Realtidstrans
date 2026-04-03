@@ -134,6 +134,18 @@ export default function LiveSessionPage() {
       setIsLive(status === 'live');
     });
 
+    // Listen for moderator projector commands
+    socket.on('projector:set_view', ({ view }) => {
+      // Map moderator view names to our focus modes
+      const modeMap: Record<string, string> = {
+        transcript: 'transcript', summary: 'summary', questions: 'questions',
+        quotes: 'quotes', audience: 'audience',
+      };
+      if (modeMap[view]) {
+        setRemoteFocusMode(modeMap[view]);
+      }
+    });
+
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
   }, [sessionId]);
 
@@ -153,6 +165,7 @@ export default function LiveSessionPage() {
   }, [sessionId]);
 
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [remoteFocusMode, setRemoteFocusMode] = useState<string | null>(null);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -525,6 +538,7 @@ export default function LiveSessionPage() {
         isLive={isLive}
         focusModes={FOCUS_MODES}
         sidebarContent={sidebar}
+        externalFocusMode={remoteFocusMode}
       >
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>
