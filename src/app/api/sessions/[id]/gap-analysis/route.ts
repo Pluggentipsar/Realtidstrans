@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sessionStore } from '@/server/session-store';
 import { analyzeGaps } from '@/lib/claude-ai';
+import { buildSessionContext } from '@/lib/prompts/system';
 
 export async function POST(
   _request: NextRequest,
@@ -17,8 +18,7 @@ export async function POST(
     return NextResponse.json({ error: 'Ingen transkribering tillgänglig' }, { status: 400 });
   }
 
-  const sessionContext = `Titel: ${session.title}\nBeskrivning: ${session.description}\nKontext: ${session.context}`;
-
+  const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
   const analysis = await analyzeGaps(id, sessionContext, fullTranscript);
   sessionStore.addSummary(analysis);
 

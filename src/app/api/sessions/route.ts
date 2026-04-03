@@ -4,7 +4,7 @@ import { sessionStore } from '@/server/session-store';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, context, hostName } = body;
+    const { title, description, context, hostName, briefing } = body;
 
     if (!title || !hostName) {
       return NextResponse.json(
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       description: description || '',
       context: context || '',
       hostName,
+      briefing: briefing || undefined,
     });
 
     return NextResponse.json(session, { status: 201 });

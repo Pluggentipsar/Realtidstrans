@@ -1,4 +1,5 @@
 import { sessionStore } from './session-store';
+import { buildSessionContext } from '@/lib/prompts/system';
 import {
   generateSummary,
   generateQuestions,
@@ -125,7 +126,7 @@ export class AIProcessor {
       const startTime = newSegments[0].timestamp;
       const endTime = newSegments[newSegments.length - 1].timestamp;
 
-      const sessionContext = `Titel: ${session.title}\nBeskrivning: ${session.description}\nKontext: ${session.context}`;
+      const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
 
       // Build context-aware transcript (includes previous summaries)
       const contextAwareTranscript = buildContextWindow(
@@ -245,7 +246,7 @@ export class AIProcessor {
         return;
       }
 
-      const sessionContext = `Titel: ${session.title}\nBeskrivning: ${session.description}\nKontext: ${session.context}`;
+      const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
 
       const result = await detectTopicShift(
         this.sessionId,

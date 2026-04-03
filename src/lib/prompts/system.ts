@@ -1,6 +1,83 @@
 // AI System Prompts for Claude
 // All prompts maintain session context for relevance
 
+import type { SessionBriefing, AgendaItem, PreparedQuestion, SpeakerBio, SessionFormat, SESSION_FORMAT_LABELS } from '@/types';
+
+/**
+ * Build rich context string from session briefing.
+ * This is the foundation for all AI prompts — the more detail, the better the questions.
+ */
+export function buildSessionContext(
+  title: string,
+  description: string,
+  legacyContext: string,
+  briefing?: SessionBriefing
+): string {
+  const parts: string[] = [];
+
+  parts.push(`SESSIONSTITEL: ${title}`);
+  if (description) parts.push(`BESKRIVNING: ${description}`);
+
+  if (briefing && (briefing.topic || briefing.goal || briefing.agenda.length > 0)) {
+    if (briefing.format) parts.push(`FORMAT: ${briefing.format}`);
+    if (briefing.topic) parts.push(`ÄMNE: ${briefing.topic}`);
+    if (briefing.goal) parts.push(`MÅL: ${briefing.goal}\n(Vad ska publiken ta med sig?)`);
+
+    if (briefing.speakerBios.length > 0) {
+      parts.push('\nTALARE:');
+      for (const bio of briefing.speakerBios) {
+        let line = `- ${bio.name}`;
+        if (bio.title) line += `, ${bio.title}`;
+        if (bio.organization) line += ` (${bio.organization})`;
+        if (bio.expertise) line += `\n  Expertis: ${bio.expertise}`;
+        if (bio.stance) line += `\n  Känd position: ${bio.stance}`;
+        if (bio.background) line += `\n  Bakgrund: ${bio.background}`;
+        parts.push(line);
+      }
+    }
+
+    if (briefing.agenda.length > 0) {
+      parts.push('\nDAGORDNING:');
+      for (const item of briefing.agenda.sort((a, b) => a.order - b.order)) {
+        let line = `${item.order}. ${item.title}`;
+        if (item.durationMinutes) line += ` (${item.durationMinutes} min)`;
+        if (item.description) line += `\n   ${item.description}`;
+        parts.push(line);
+      }
+    }
+
+    if (briefing.preparedQuestions.length > 0) {
+      const pending = briefing.preparedQuestions.filter((q) => q.status === 'pending');
+      if (pending.length > 0) {
+        parts.push('\nFÖRBEREDDA FRÅGOR (ännu ej ställda):');
+        for (const q of pending) {
+          let line = `- "${q.question}"`;
+          if (q.targetSpeaker) line += ` (till ${q.targetSpeaker})`;
+          if (q.priority === 'must_ask') line += ' [MÅSTE STÄLLAS]';
+          parts.push(line);
+        }
+      }
+    }
+
+    if (briefing.backgroundMaterial) {
+      parts.push(`\nBAKGRUNDSMATERIAL:\n${briefing.backgroundMaterial}`);
+    }
+
+    if (briefing.avoidTopics) {
+      parts.push(`\nUNDVIK DESSA ÄMNEN: ${briefing.avoidTopics}`);
+    }
+
+    if (briefing.customInstructions) {
+      parts.push(`\nSÄRSKILDA INSTRUKTIONER: ${briefing.customInstructions}`);
+    }
+  } else if (legacyContext) {
+    // Fallback to legacy free-text context
+    parts.push(`\nKONTEXT: ${legacyContext}`);
+  }
+
+  return parts.join('\n');
+}
+
 export function getSummaryPrompt(sessionContext: string): string {
   return `Du är en expert på att sammanfatta samtal i realtid. Du arbetar som stöd under en session med följande kontext:
 

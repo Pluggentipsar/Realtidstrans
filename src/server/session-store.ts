@@ -1,6 +1,8 @@
 import {
   Session,
   SessionStatus,
+  SessionBriefing,
+  DEFAULT_BRIEFING,
   TranscriptSegment,
   AISummary,
   AIQuestion,
@@ -46,6 +48,7 @@ class SessionStore {
     context: string;
     hostName: string;
     speakers?: Speaker[];
+    briefing?: Partial<SessionBriefing>;
   }): Session {
     const id = generateId();
     const code = generateSessionCode();
@@ -56,6 +59,7 @@ class SessionStore {
       title: data.title,
       description: data.description,
       context: data.context,
+      briefing: { ...DEFAULT_BRIEFING, ...data.briefing },
       hostName: data.hostName,
       speakers: data.speakers || [],
       status: 'setup',
@@ -101,6 +105,13 @@ class SessionStore {
     if (status === 'ended') {
       session.endedAt = new Date();
     }
+    return session;
+  }
+
+  updateBriefing(id: string, briefing: Partial<SessionBriefing>): Session | undefined {
+    const session = this.sessions.get(id);
+    if (!session) return undefined;
+    session.briefing = { ...session.briefing, ...briefing };
     return session;
   }
 

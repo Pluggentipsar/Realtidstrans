@@ -9,7 +9,8 @@ export interface Session {
   code: string; // 6-digit audience join code
   title: string;
   description: string;
-  context: string; // Pre-session context about the topic
+  context: string; // Legacy free-text context
+  briefing: SessionBriefing; // Structured pre-session context
   hostName: string;
   speakers: Speaker[];
   status: SessionStatus;
@@ -18,6 +19,69 @@ export interface Session {
   startedAt?: Date;
   endedAt?: Date;
 }
+
+// Structured briefing — everything the AI needs to be the smartest person in the room
+export interface SessionBriefing {
+  topic: string; // What is this session about?
+  goal: string; // What should the audience walk away with?
+  format: SessionFormat;
+  agenda: AgendaItem[];
+  preparedQuestions: PreparedQuestion[];
+  speakerBios: SpeakerBio[];
+  backgroundMaterial: string; // Free text: reports, data, context the AI should know
+  avoidTopics: string; // Topics to NOT bring up
+  customInstructions: string; // Free text: anything else for the AI
+}
+
+export type SessionFormat = 'interview' | 'panel' | 'lecture' | 'workshop' | 'fireside_chat' | 'qa' | 'other';
+
+export const SESSION_FORMAT_LABELS: Record<SessionFormat, string> = {
+  interview: 'Intervju',
+  panel: 'Panelsamtal',
+  lecture: 'Foreläsning',
+  workshop: 'Workshop',
+  fireside_chat: 'Fireside chat',
+  qa: 'Frågestund',
+  other: 'Annat',
+};
+
+export interface AgendaItem {
+  id: string;
+  title: string;
+  description: string;
+  durationMinutes?: number;
+  order: number;
+}
+
+export interface PreparedQuestion {
+  id: string;
+  question: string;
+  targetSpeaker?: string; // Who it's for
+  priority: 'must_ask' | 'nice_to_ask' | 'if_time';
+  status: 'pending' | 'asked' | 'skipped';
+  notes?: string; // Private notes for moderator
+}
+
+export interface SpeakerBio {
+  name: string;
+  title: string; // Job title / role
+  organization: string;
+  expertise: string; // What they're known for
+  stance?: string; // Known positions/opinions on the topic
+  background?: string; // Relevant background info
+}
+
+export const DEFAULT_BRIEFING: SessionBriefing = {
+  topic: '',
+  goal: '',
+  format: 'panel',
+  agenda: [],
+  preparedQuestions: [],
+  speakerBios: [],
+  backgroundMaterial: '',
+  avoidTopics: '',
+  customInstructions: '',
+};
 
 export type SessionStatus = 'setup' | 'soundcheck' | 'live' | 'paused' | 'ended';
 
