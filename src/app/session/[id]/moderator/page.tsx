@@ -163,6 +163,9 @@ export default function ModeratorPage() {
               Temp: {engagement.temperature}
             </span>
           )}
+          {!isLive && session.briefing?.speakerBios && session.briefing.speakerBios.length > 0 && (
+            <a href={`/session/${sessionId}/soundcheck`} className="btn-primary text-xs py-1.5 px-3">Ljudprov</a>
+          )}
           <a href={`/session/${sessionId}`} className="btn-ghost text-xs">Projektorvy</a>
           <a href={`/session/${sessionId}/dashboard`} className="btn-ghost text-xs">Dashboard</a>
         </div>

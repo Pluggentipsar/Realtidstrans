@@ -143,13 +143,13 @@ export default function SoundcheckPage() {
 
       {/* Step indicator */}
       <div className="flex items-center justify-center gap-2 mb-8">
-        {['Setup', 'Ljudprov', 'Live'].map((step, i) => (
+        {['Setup', 'Moderator', 'Ljudprov', 'Live'].map((step, i) => (
           <div key={step} className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: i <= 1 ? 'var(--color-accent)' : 'var(--color-surface-raised)', color: i <= 1 ? 'white' : 'var(--color-text-muted)' }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: i <= 2 ? 'var(--color-accent)' : 'var(--color-surface-raised)', color: i <= 2 ? 'white' : 'var(--color-text-muted)' }}>
               {i + 1}
             </div>
-            <span className="text-sm" style={{ color: i <= 1 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{step}</span>
-            {i < 2 && <div className="w-8 h-px" style={{ background: 'var(--color-border)' }} />}
+            <span className="text-xs" style={{ color: i <= 2 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{step}</span>
+            {i < 3 && <div className="w-6 h-px" style={{ background: 'var(--color-border)' }} />}
           </div>
         ))}
       </div>
@@ -228,7 +228,7 @@ export default function SoundcheckPage() {
           Hoppa over ljudprov
         </button>
         <button onClick={proceedToLive} disabled={!allDone && speakers.length > 0} className="btn-primary flex-1 py-3">
-          {allDone || speakers.length === 0 ? 'Ga till sessionen' : `${speakers.filter((s) => s.status === 'done').length}/${speakers.length} klara`}
+          {allDone || speakers.length === 0 ? 'Tillbaka till moderator' : `${speakers.filter((s) => s.status === 'done').length}/${speakers.length} klara`}
         </button>
       </div>
     </div>
