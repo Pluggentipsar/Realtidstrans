@@ -152,15 +152,24 @@ export default function LiveSessionPage() {
     return () => { window.removeEventListener('offline', onOffline); window.removeEventListener('online', onOnline); };
   }, [sessionId]);
 
+  const [audioError, setAudioError] = useState<string | null>(null);
+
   const startSession = useCallback(async () => {
-    const ac = new AudioCapture();
-    audioCaptureRef.current = ac;
-    await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
-    setAudioStream(ac.getStream());
-    // Recording auto-starts via useRecording hook
-    setAiStates(['listening']);
-    socketRef.current.emit('transcription:start', sessionId);
-    setIsLive(true);
+    setAudioError(null);
+    try {
+      const ac = new AudioCapture();
+      audioCaptureRef.current = ac;
+      await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
+      setAudioStream(ac.getStream());
+      socketRef.current.emit('transcription:start', sessionId);
+      setIsLive(true);
+    } catch (err) {
+      const msg = err instanceof DOMException && err.name === 'NotAllowedError'
+        ? 'Mikrofonbehorighet nekad. Tiliat mikrofon i webblasaren och forsok igen.'
+        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon ar ansluten.';
+      setAudioError(msg);
+      console.error('Audio capture failed:', err);
+    }
   }, [sessionId]);
 
   const stopSession = useCallback(() => {
@@ -452,6 +461,14 @@ export default function LiveSessionPage() {
             }}
             compact
           />
+        </div>
+      )}
+
+      {/* Audio error */}
+      {audioError && (
+        <div className="card" style={{ borderColor: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)' }}>
+          <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{audioError}</p>
+          <button onClick={() => setAudioError(null)} className="btn-ghost text-xs mt-2">Stang</button>
         </div>
       )}
 

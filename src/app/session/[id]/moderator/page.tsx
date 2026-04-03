@@ -47,8 +47,22 @@ export default function ModeratorPage() {
   // Moderator state
   const [questionFocus, setQuestionFocus] = useState<QuestionFocus>('balanced');
   const [questionTarget, setQuestionTarget] = useState<QuestionTarget>('anyone');
-  const [dismissedAiIds, setDismissedAiIds] = useState<Set<string>>(new Set());
-  const [highlightedAiIds, setHighlightedAiIds] = useState<Set<string>>(new Set());
+  // Persist dismiss/highlight state in localStorage so page refresh doesn't lose triage
+  const [dismissedAiIds, setDismissedAiIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem(`dismissed_${sessionId}`) || '[]')); } catch { return new Set(); }
+  });
+  const [highlightedAiIds, setHighlightedAiIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem(`highlighted_${sessionId}`) || '[]')); } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`dismissed_${sessionId}`, JSON.stringify([...dismissedAiIds]));
+  }, [dismissedAiIds, sessionId]);
+  useEffect(() => {
+    localStorage.setItem(`highlighted_${sessionId}`, JSON.stringify([...highlightedAiIds]));
+  }, [highlightedAiIds, sessionId]);
   const [projectorView, setProjectorView] = useState('transcript');
 
   // Poll creation
@@ -160,7 +174,7 @@ export default function ModeratorPage() {
         <div className="flex items-center gap-2">
           {engagement && (
             <span className="text-xs" style={{ color: engagement.temperature > 60 ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
-              Temp: {engagement.temperature}
+              Temp: {engagement.temperature} {engagement.temperature < 30 ? '(lugnt)' : engagement.temperature < 70 ? '(engagerat)' : '(intensivt)'}
             </span>
           )}
           {!isLive && session.briefing?.speakerBios && session.briefing.speakerBios.length > 0 && (

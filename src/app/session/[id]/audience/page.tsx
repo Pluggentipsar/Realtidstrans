@@ -273,8 +273,9 @@ export default function AudiencePage() {
               className="input text-sm"
               placeholder="Stall en fraga..."
               value={newQuestion}
-              onChange={(e) => setNewQuestion(e.target.value)}
+              onChange={(e) => setNewQuestion(e.target.value.slice(0, 500))}
               onKeyDown={(e) => e.key === 'Enter' && submitQuestion()}
+              maxLength={500}
             />
             <button onClick={submitQuestion} disabled={!newQuestion.trim()} className="btn-primary text-sm px-4 flex-shrink-0">
               Skicka

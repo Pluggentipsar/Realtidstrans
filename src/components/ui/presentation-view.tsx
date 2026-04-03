@@ -23,6 +23,7 @@ export function PresentationView({
   sidebarContent,
 }: PresentationViewProps) {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [showKeyHints, setShowKeyHints] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>(focusModes[0]?.key || 'transcript');
   const [showSidebar, setShowSidebar] = useState(true);
   const { scale } = useTextSize();
@@ -55,6 +56,8 @@ export function PresentationView({
     if (isPresentationMode) {
       document.documentElement.requestFullscreen?.().catch(() => {});
       document.body.classList.add('presentation-mode');
+      setShowKeyHints(true);
+      setTimeout(() => setShowKeyHints(false), 4000);
     } else {
       if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
@@ -84,7 +87,7 @@ export function PresentationView({
             <TextSizeControls />
             <span className="text-sm text-gray-500 font-mono">{sessionCode}</span>
             <button onClick={togglePresentation} className="btn-ghost text-sm">
-              Avsluta (Esc)
+              Esc
             </button>
           </div>
         </div>
@@ -107,6 +110,22 @@ export function PresentationView({
         </div>
 
         {/* Content — full screen, large text */}
+        {/* Keyboard hints overlay — shown briefly on enter */}
+        {showKeyHints && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center animate-fade-in" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setShowKeyHints(false)}>
+            <div className="text-center space-y-3">
+              <div className="text-2xl font-bold text-white mb-4">Tangentbordsgenvagar</div>
+              <div className="flex flex-col gap-2 text-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                <div><kbd className="px-2 py-1 rounded" style={{ background: 'var(--color-surface-raised)' }}>1-{focusModes.length}</kbd> Byt vy</div>
+                <div><kbd className="px-2 py-1 rounded" style={{ background: 'var(--color-surface-raised)' }}>Ctrl +/-</kbd> Textstorlek</div>
+                <div><kbd className="px-2 py-1 rounded" style={{ background: 'var(--color-surface-raised)' }}>Ctrl 0</kbd> Aterstall text</div>
+                <div><kbd className="px-2 py-1 rounded" style={{ background: 'var(--color-surface-raised)' }}>Esc</kbd> Avsluta fokus</div>
+              </div>
+              <p className="text-sm mt-4" style={{ color: 'var(--color-text-muted)' }}>Klicka for att stanga</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto px-8 py-4 presentation-content">
           {children(focusMode)}
         </div>

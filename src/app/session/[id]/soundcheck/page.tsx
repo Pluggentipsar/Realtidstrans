@@ -223,13 +223,33 @@ export default function SoundcheckPage() {
       </div>
 
       {/* Actions */}
-      <div className="mt-8 flex gap-3">
-        <button onClick={skipSoundcheck} className="btn-ghost flex-1 py-3 text-sm">
-          Hoppa over ljudprov
-        </button>
-        <button onClick={proceedToLive} disabled={!allDone && speakers.length > 0} className="btn-primary flex-1 py-3">
+      <div className="mt-8 space-y-3">
+        <button onClick={proceedToLive} disabled={!allDone && speakers.length > 0} className="btn-primary w-full py-3">
           {allDone || speakers.length === 0 ? 'Tillbaka till moderator' : `${speakers.filter((s) => s.status === 'done').length}/${speakers.length} klara`}
         </button>
+        <button
+          onClick={() => {
+            if (confirm('Hoppa over ljudprov? Talaridentifiering fungerar fortfarande men kan vara mindre precis.')) {
+              skipSoundcheck();
+            }
+          }}
+          className="btn-ghost w-full py-2 text-sm"
+        >
+          Hoppa over ljudprov
+        </button>
+        {speakers.some((s) => s.status === 'done') && !allDone && (
+          <button
+            onClick={() => {
+              if (confirm(`${speakers.filter((s) => s.status !== 'done').length} talare har inte gjort ljudprov. Fortsatt anda?`)) {
+                proceedToLive();
+              }
+            }}
+            className="btn-ghost w-full py-2 text-sm"
+            style={{ color: 'var(--color-warning)' }}
+          >
+            Fortsatt med {speakers.filter((s) => s.status === 'done').length} av {speakers.length} klara
+          </button>
+        )}
       </div>
     </div>
   );
