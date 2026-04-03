@@ -7,14 +7,7 @@ export async function GET(
 ) {
   const { id } = await params;
   const session = sessionStore.getSession(id);
-
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Session hittades inte' },
-      { status: 404 }
-    );
-  }
-
+  if (!session) return NextResponse.json({ error: 'Session hittades inte' }, { status: 404 });
   return NextResponse.json(session);
 }
 
@@ -25,16 +18,21 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
+  const session = sessionStore.getSession(id);
+  if (!session) return NextResponse.json({ error: 'Session hittades inte' }, { status: 404 });
+
   if (body.status) {
-    const session = sessionStore.updateSessionStatus(id, body.status);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Session hittades inte' },
-        { status: 404 }
-      );
-    }
-    return NextResponse.json(session);
+    sessionStore.updateSessionStatus(id, body.status);
   }
 
-  return NextResponse.json({ error: 'Inget att uppdatera' }, { status: 400 });
+  if (body.addSpeaker) {
+    sessionStore.addSpeaker(id, body.addSpeaker);
+  }
+
+  if (body.preparedQuestionUpdate) {
+    const { questionId, status } = body.preparedQuestionUpdate;
+    sessionStore.updatePreparedQuestionStatus(id, questionId, status);
+  }
+
+  return NextResponse.json(sessionStore.getSession(id));
 }

@@ -22,8 +22,10 @@ import {
   QuestionFocus,
   QuestionTarget,
   QUESTION_FOCUS_OPTIONS,
+  PreparedQuestion,
 } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
+import { ExportPanel } from '@/components/ui/export-panel';
 
 export default function ModeratorPage() {
   const params = useParams();
@@ -357,6 +359,42 @@ export default function ModeratorPage() {
             </div>
           )}
 
+          {/* Prepared questions from briefing */}
+          {session.briefing?.preparedQuestions && session.briefing.preparedQuestions.length > 0 && (
+            <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+              <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-warning)' }}>
+                FORBEREDDA FRAGOR ({session.briefing.preparedQuestions.filter((q: PreparedQuestion) => q.status === 'pending').length}/{session.briefing.preparedQuestions.length})
+              </h3>
+              {session.briefing.preparedQuestions.map((q: PreparedQuestion) => (
+                <div key={q.id} className="flex items-start gap-2 mb-2" style={{ opacity: q.status !== 'pending' ? 0.4 : 1 }}>
+                  <button
+                    onClick={() => {
+                      const newStatus = q.status === 'pending' ? 'asked' : 'pending';
+                      fetch(`/api/sessions/${sessionId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preparedQuestionUpdate: { questionId: q.id, status: newStatus } }),
+                      }).then((r) => r.json()).then(setSession);
+                    }}
+                    className="w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0 mt-0.5 transition-all"
+                    style={{
+                      background: q.status === 'asked' ? 'var(--color-success)' : q.priority === 'must_ask' ? 'rgba(239,68,68,0.2)' : 'var(--color-surface-raised)',
+                      color: q.status === 'asked' ? 'white' : q.priority === 'must_ask' ? 'var(--color-danger)' : 'var(--color-text-muted)',
+                      border: `1px solid ${q.status === 'asked' ? 'var(--color-success)' : q.priority === 'must_ask' ? 'rgba(239,68,68,0.4)' : 'var(--color-border)'}`,
+                    }}
+                    title={q.status === 'pending' ? 'Markera som stalld' : 'Markera som ej stalld'}
+                  >
+                    {q.status === 'asked' ? '\u2713' : q.priority === 'must_ask' ? '!' : '\u25CB'}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs leading-relaxed" style={{ textDecoration: q.status === 'asked' ? 'line-through' : 'none' }}>{q.question}</p>
+                    {q.targetSpeaker && <span className="text-xs" style={{ color: 'var(--color-accent)' }}>&#x1F3AF; {q.targetSpeaker}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Audience questions */}
           <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
             <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
@@ -430,6 +468,19 @@ export default function ModeratorPage() {
                 })}
               </div>
             ))}
+          </div>
+
+          {/* Export */}
+          <div className="p-3">
+            <ExportPanel
+              sessionId={sessionId}
+              sessionTitle={session.title}
+              transcript={transcript.filter((t) => t.isFinal).map((t) => `${t.speakerName}: ${t.text}`).join('\n')}
+              summaries={summaries}
+              aiQuestions={aiQuestions}
+              quotes={quotes}
+              audienceQuestions={audienceQuestions}
+            />
           </div>
         </div>
       </div>

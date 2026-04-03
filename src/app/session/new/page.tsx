@@ -75,7 +75,9 @@ export default function NewSessionPage() {
       });
       if (!response.ok) throw new Error('fail');
       const session = await response.json();
-      router.push(`/session/${session.id}/moderator`);
+      // Go to soundcheck if speakers exist, otherwise straight to moderator
+      const hasSpeakers = speakerBios.length > 0;
+      router.push(`/session/${session.id}/${hasSpeakers ? 'soundcheck' : 'moderator'}`);
     } catch { alert('Kunde inte skapa sessionen.'); } finally { setIsCreating(false); }
   };
 

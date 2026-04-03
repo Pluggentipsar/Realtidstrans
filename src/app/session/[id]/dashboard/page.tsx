@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { ExportPanel } from '@/components/ui/export-panel';
 import {
   Session, AISummary, AIQuestion, AudienceQuestion, QuestionCluster,
   QuotableMoment, SessionEngagement, SpeakerAnalytics,
@@ -145,6 +146,17 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* Export */}
+          <ExportPanel
+            sessionId={sessionId}
+            sessionTitle={session.title}
+            transcript=""
+            summaries={summaries}
+            aiQuestions={aiQuestions}
+            quotes={quotes}
+            audienceQuestions={audienceQuestions}
+          />
         </div>
       )}
 

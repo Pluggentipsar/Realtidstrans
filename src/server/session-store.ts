@@ -89,6 +89,12 @@ class SessionStore {
     return this.sessions.get(id);
   }
 
+  getAllSessions(): Session[] {
+    return Array.from(this.sessions.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
   getSessionByCode(code: string): Session | undefined {
     const id = this.sessionsByCode.get(code);
     return id ? this.sessions.get(id) : undefined;
@@ -113,6 +119,25 @@ class SessionStore {
     if (!session) return undefined;
     session.briefing = { ...session.briefing, ...briefing };
     return session;
+  }
+
+  updatePreparedQuestionStatus(sessionId: string, questionId: string, status: 'pending' | 'asked' | 'skipped'): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const q = session.briefing.preparedQuestions.find((q) => q.id === questionId);
+    if (q) q.status = status;
+  }
+
+  linkSpeakerToProfile(sessionId: string, speakerId: string, speakerName: string, color: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    // Update existing speaker or add new
+    const existing = session.speakers.find((s) => s.id === speakerId);
+    if (existing) {
+      existing.name = speakerName;
+    } else {
+      session.speakers.push({ id: speakerId, name: speakerName, role: 'guest', color });
+    }
   }
 
   updateSessionSettings(id: string, settings: Partial<Session['settings']>): Session | undefined {

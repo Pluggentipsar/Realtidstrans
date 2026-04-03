@@ -37,6 +37,9 @@ export default function RootLayout({
                 Realtids<span style={{ color: 'var(--color-accent)' }}>trans</span>
               </Link>
               <div className="flex items-center gap-1">
+                <Link href="/sessions" className="btn-ghost text-sm">
+                  Sessioner
+                </Link>
                 <Link href="/session/new" className="btn-ghost text-sm">
                   Ny session
                 </Link>
