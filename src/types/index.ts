@@ -23,20 +23,28 @@ export type SessionStatus = 'setup' | 'soundcheck' | 'live' | 'paused' | 'ended'
 
 export interface SessionSettings {
   language: string; // e.g. 'sv-SE'
-  summaryIntervalSeconds: number; // How often AI summarizes (default 60)
-  smartSummaryEnabled: boolean; // Auto-detect topic shifts
+  summaryMode: SummaryMode; // How AI summarizes
+  summaryIntervalSeconds: number; // Interval for 'interval' mode (default 60)
+  smartSummaryEnabled: boolean; // Auto-detect topic shifts (for 'auto' mode)
   maxAudienceQuestions: number;
   questionClusterThreshold: number; // Min questions before clustering
   aiInsightsEnabled: boolean;
+  enablePunctuation: boolean; // Auto punctuation & formatting
+  enableQuoteExtraction: boolean; // Extract quotable moments
 }
+
+export type SummaryMode = 'interval' | 'topic_shift' | 'auto'; // auto = smart switch between both
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
   language: 'sv-SE',
+  summaryMode: 'auto',
   summaryIntervalSeconds: 60,
   smartSummaryEnabled: true,
   maxAudienceQuestions: 500,
   questionClusterThreshold: 5,
   aiInsightsEnabled: true,
+  enablePunctuation: true,
+  enableQuoteExtraction: true,
 };
 
 // --- Speakers ---
@@ -62,6 +70,19 @@ export const SPEAKER_COLORS = [
   '#F97316', // orange
 ];
 
+// --- Speaker Profiles (long-term) ---
+
+export interface SpeakerProfile {
+  id: string;
+  name: string;
+  sessionsCount: number;
+  totalSpeakingTimeMs: number;
+  favoriteWords: Array<{ word: string; count: number }>;
+  averageSentenceLength: number;
+  topicsDiscussed: string[];
+  lastSeenAt: Date;
+}
+
 // --- Transcription ---
 
 export interface TranscriptSegment {
@@ -71,7 +92,16 @@ export interface TranscriptSegment {
   speakerName: string;
   text: string;
   timestamp: number; // ms from session start
+  endTimestamp?: number; // ms from session start
   isFinal: boolean;
+  confidence: number;
+  wordTimestamps?: WordTimestamp[]; // Word-level timing
+}
+
+export interface WordTimestamp {
+  word: string;
+  startMs: number;
+  endMs: number;
   confidence: number;
 }
 
@@ -90,10 +120,11 @@ export interface AISummary {
   type: SummaryType;
   coveringFrom: number; // timestamp
   coveringTo: number; // timestamp
+  topicLabel?: string; // For topic_shift type
   createdAt: Date;
 }
 
-export type SummaryType = 'interval' | 'topic_shift' | 'final_chronological' | 'final_thematic';
+export type SummaryType = 'interval' | 'topic_shift' | 'final_chronological' | 'final_thematic' | 'gap_analysis';
 
 export interface AIQuestion {
   id: string;
@@ -122,6 +153,28 @@ export const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
   connection: 'Koppling',
 };
 
+// --- Quotable Moments ---
+
+export interface QuotableMoment {
+  id: string;
+  sessionId: string;
+  speakerId: string;
+  speakerName: string;
+  quote: string;
+  context: string; // Why this quote is notable
+  timestamp: number;
+  impactScore: number; // 1-10
+  category: 'insight' | 'provocative' | 'emotional' | 'humorous' | 'key_argument';
+}
+
+export const QUOTE_CATEGORY_LABELS: Record<QuotableMoment['category'], string> = {
+  insight: 'Insikt',
+  provocative: 'Provocerande',
+  emotional: 'Emotionellt',
+  humorous: 'Humoristiskt',
+  key_argument: 'Nyckelargument',
+};
+
 // --- Audience Q&A ---
 
 export interface AudienceQuestion {
@@ -146,6 +199,90 @@ export interface QuestionCluster {
   priority: number;
 }
 
+// --- Polls ---
+
+export interface Poll {
+  id: string;
+  sessionId: string;
+  question: string;
+  options: PollOption[];
+  status: 'active' | 'closed';
+  createdAt: Date;
+  closedAt?: Date;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+}
+
+// --- Audience Reactions ---
+
+export type ReactionType = 'thumbs_up' | 'thinking' | 'question' | 'clap' | 'surprised';
+
+export interface ReactionBurst {
+  sessionId: string;
+  type: ReactionType;
+  count: number;
+  timestamp: number;
+}
+
+export const REACTION_EMOJIS: Record<ReactionType, string> = {
+  thumbs_up: '\uD83D\uDC4D',
+  thinking: '\uD83E\uDD14',
+  question: '\u2753',
+  clap: '\uD83D\uDC4F',
+  surprised: '\uD83D\uDE2E',
+};
+
+// --- Engagement / Temperature ---
+
+export interface EngagementSnapshot {
+  timestamp: number;
+  reactionRate: number; // reactions per minute
+  questionRate: number; // questions per minute
+  activeUsers: number;
+  temperature: number; // 0-100 composite score
+  dominantReaction?: ReactionType;
+}
+
+export interface SessionEngagement {
+  sessionId: string;
+  snapshots: EngagementSnapshot[];
+  peakMoments: Array<{
+    timestamp: number;
+    temperature: number;
+    reason: string; // What caused the peak
+  }>;
+  totalReactions: Record<ReactionType, number>;
+  averageTemperature: number;
+}
+
+// --- Speaker Analytics ---
+
+export interface SpeakerAnalytics {
+  speakerId: string;
+  speakerName: string;
+  totalSpeakingTimeMs: number;
+  segmentCount: number;
+  averageSegmentLengthMs: number;
+  wordCount: number;
+  topWords: Array<{ word: string; count: number }>;
+  speakingPercentage: number;
+}
+
+// --- Multi-device Audio ---
+
+export interface AudioDevice {
+  id: string;
+  sessionId: string;
+  deviceName: string;
+  speakerId?: string; // Linked speaker
+  isActive: boolean;
+  joinedAt: Date;
+}
+
 // --- Socket.io Events ---
 
 export interface ServerToClientEvents {
@@ -153,18 +290,30 @@ export interface ServerToClientEvents {
   'transcript:final': (segment: TranscriptSegment) => void;
   'ai:summary': (summary: AISummary) => void;
   'ai:questions': (questions: AIQuestion[]) => void;
+  'ai:quotes': (quotes: QuotableMoment[]) => void;
+  'ai:gap_analysis': (analysis: AISummary) => void;
+  'ai:topic_shift': (data: { topic: string; timestamp: number }) => void;
   'audience:question_added': (question: AudienceQuestion) => void;
   'audience:question_voted': (data: { questionId: string; votes: number }) => void;
   'audience:clusters_updated': (clusters: QuestionCluster[]) => void;
+  'poll:created': (poll: Poll) => void;
+  'poll:updated': (poll: Poll) => void;
+  'poll:closed': (poll: Poll) => void;
+  'reaction:burst': (burst: ReactionBurst) => void;
+  'engagement:update': (snapshot: EngagementSnapshot) => void;
   'session:status_changed': (status: SessionStatus) => void;
   'session:speaker_identified': (speaker: Speaker) => void;
+  'audio:device_joined': (device: AudioDevice) => void;
+  'audio:device_left': (deviceId: string) => void;
   'error': (error: { message: string; code: string }) => void;
 }
 
 export interface ClientToServerEvents {
   'session:join': (data: { sessionId: string; role: 'host' | 'audience' }) => void;
   'session:leave': (sessionId: string) => void;
-  'audio:chunk': (data: { sessionId: string; chunk: ArrayBuffer }) => void;
+  'audio:chunk': (data: { sessionId: string; chunk: ArrayBuffer; deviceId?: string }) => void;
+  'audio:join_as_mic': (data: { sessionId: string; deviceName: string; speakerId?: string }) => void;
+  'audio:leave_as_mic': (data: { sessionId: string; deviceId: string }) => void;
   'transcription:start': (sessionId: string) => void;
   'transcription:stop': (sessionId: string) => void;
   'audience:submit_question': (data: {
@@ -173,4 +322,8 @@ export interface ClientToServerEvents {
     authorName?: string;
   }) => void;
   'audience:vote_question': (data: { sessionId: string; questionId: string }) => void;
+  'audience:react': (data: { sessionId: string; type: ReactionType }) => void;
+  'poll:create': (data: { sessionId: string; question: string; options: string[] }) => void;
+  'poll:vote': (data: { sessionId: string; pollId: string; optionId: string }) => void;
+  'poll:close': (data: { sessionId: string; pollId: string }) => void;
 }

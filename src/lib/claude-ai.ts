@@ -5,12 +5,16 @@ import {
   QuestionCategory,
   QuestionCluster,
   AudienceQuestion,
+  QuotableMoment,
 } from '@/types';
 import {
   getSummaryPrompt,
   getQuestionsPrompt,
   getAudienceClusterPrompt,
   getFinalSummaryPrompt,
+  getTopicShiftPrompt,
+  getQuoteExtractionPrompt,
+  getGapAnalysisPrompt,
 } from '@/lib/prompts/system';
 import { generateId } from '@/lib/utils';
 
@@ -36,7 +40,8 @@ export async function generateSummary(
   transcriptText: string,
   startTime: number,
   endTime: number,
-  type: 'interval' | 'topic_shift' = 'interval'
+  type: 'interval' | 'topic_shift' = 'interval',
+  topicLabel?: string
 ): Promise<AISummary> {
   const anthropic = getClient();
 
@@ -47,7 +52,9 @@ export async function generateSummary(
     messages: [
       {
         role: 'user',
-        content: `Sammanfatta följande avsnitt av samtalet:\n\n${transcriptText}`,
+        content: type === 'topic_shift'
+          ? `Nytt ämne detekterat: "${topicLabel}". Sammanfatta det föregående avsnittet:\n\n${transcriptText}`
+          : `Sammanfatta följande avsnitt av samtalet:\n\n${transcriptText}`,
       },
     ],
   });
@@ -62,6 +69,7 @@ export async function generateSummary(
     type,
     coveringFrom: startTime,
     coveringTo: endTime,
+    topicLabel,
     createdAt: new Date(),
   };
 }
@@ -112,6 +120,128 @@ export async function generateQuestions(
     console.error('Failed to parse AI questions response');
     return [];
   }
+}
+
+export async function detectTopicShift(
+  sessionContext: string,
+  recentTranscript: string,
+  previousTranscript: string
+): Promise<{
+  topicShiftDetected: boolean;
+  previousTopic: string;
+  newTopic: string;
+  confidence: number;
+  transitionType: 'gradual' | 'abrupt' | 'return_to_previous';
+} | null> {
+  const anthropic = getClient();
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 512,
+    system: getTopicShiftPrompt(sessionContext),
+    messages: [
+      {
+        role: 'user',
+        content: `FÖREGÅENDE AVSNITT:\n${previousTranscript}\n\nSENASTE AVSNITT:\n${recentTranscript}`,
+      },
+    ],
+  });
+
+  const content = response.content[0];
+  const text = content.type === 'text' ? content.text : '';
+
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+}
+
+export async function extractQuotes(
+  sessionId: string,
+  sessionContext: string,
+  transcriptText: string,
+  baseTimestamp: number
+): Promise<QuotableMoment[]> {
+  const anthropic = getClient();
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system: getQuoteExtractionPrompt(sessionContext),
+    messages: [
+      {
+        role: 'user',
+        content: `Identifiera starka citat ur följande avsnitt:\n\n${transcriptText}`,
+      },
+    ],
+  });
+
+  const content = response.content[0];
+  const text = content.type === 'text' ? content.text : '[]';
+
+  try {
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]) as Array<{
+      speakerName: string;
+      quote: string;
+      context: string;
+      category: QuotableMoment['category'];
+      impactScore: number;
+    }>;
+
+    return parsed.map((q) => ({
+      id: generateId(),
+      sessionId,
+      speakerId: '', // Will be resolved by caller
+      speakerName: q.speakerName,
+      quote: q.quote,
+      context: q.context,
+      timestamp: baseTimestamp,
+      impactScore: q.impactScore,
+      category: q.category,
+    }));
+  } catch {
+    console.error('Failed to parse quote extraction response');
+    return [];
+  }
+}
+
+export async function analyzeGaps(
+  sessionId: string,
+  sessionContext: string,
+  fullTranscript: string
+): Promise<AISummary> {
+  const anthropic = getClient();
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 2048,
+    system: getGapAnalysisPrompt(sessionContext),
+    messages: [
+      {
+        role: 'user',
+        content: `Analysera hela detta samtal och identifiera luckor, blinda fläckar och missade möjligheter:\n\n${fullTranscript}`,
+      },
+    ],
+  });
+
+  const content = response.content[0];
+  const text = content.type === 'text' ? content.text : '';
+
+  return {
+    id: generateId(),
+    sessionId,
+    content: text,
+    type: 'gap_analysis',
+    coveringFrom: 0,
+    coveringTo: Date.now(),
+    createdAt: new Date(),
+  };
 }
 
 export async function clusterAudienceQuestions(

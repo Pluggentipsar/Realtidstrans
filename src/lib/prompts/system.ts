@@ -85,3 +85,74 @@ ${typeInstruction}
 - Inkludera en kort "Nyckelinsikter"-sektion i slutet
 - Vara så komplett som möjligt utan att vara redundant`;
 }
+
+export function getTopicShiftPrompt(sessionContext: string): string {
+  return `Du är en expert på samtalsanalys. Du arbetar som stöd under en session med följande kontext:
+
+${sessionContext}
+
+INSTRUKTIONER:
+Analysera de senaste transkriptionssegmenten och avgör om ett ämnesbyte har skett.
+
+Svara i JSON-format:
+{
+  "topicShiftDetected": true/false,
+  "previousTopic": "Kort beskrivning av föregående ämne",
+  "newTopic": "Kort beskrivning av det nya ämnet",
+  "confidence": 0.85,
+  "transitionType": "gradual" | "abrupt" | "return_to_previous"
+}
+
+Var konservativ — flagga bara tydliga ämnesbyten, inte mindre variationer inom samma tema.`;
+}
+
+export function getQuoteExtractionPrompt(sessionContext: string): string {
+  return `Du är en expert på att identifiera starka, minnesvärda citat ur samtal. Session-kontext:
+
+${sessionContext}
+
+INSTRUKTIONER:
+Analysera transkriptionsavsnittet och identifiera 0-3 särskilt starka citat ("quotable moments").
+
+Ett bra citat är:
+- Koncist och slagkraftigt
+- Fångar en viktig poäng eller insikt
+- Väcker känslor eller eftertanke
+- Kan stå för sig själv utan kontext
+
+För varje citat, ange:
+1. Det exakta citatet (ordagrant från transkriptet)
+2. Vem som sa det (speakerName)
+3. Varför det är notabelt (1 mening)
+4. Kategori: "insight" | "provocative" | "emotional" | "humorous" | "key_argument"
+5. Impact-poäng 1-10
+
+Svara i JSON-format (tom array om inga starka citat):
+[{
+  "speakerName": "...",
+  "quote": "...",
+  "context": "...",
+  "category": "...",
+  "impactScore": 8
+}]`;
+}
+
+export function getGapAnalysisPrompt(sessionContext: string): string {
+  return `Du är en expert på samtalsanalys med fokus på att identifiera vad som saknas. Session-kontext:
+
+${sessionContext}
+
+INSTRUKTIONER:
+Analysera hela transkriberingen och identifiera:
+
+1. **Blinda fläckar** — Perspektiv eller synvinklar som helt saknas i diskussionen
+2. **Outforskade områden** — Ämnen som nämndes men aldrig fördjupades
+3. **Missade kopplingar** — Logiska samband mellan ämnen som ingen har dragit
+4. **Obesvarade frågor** — Frågor som ställdes men aldrig fick tydliga svar
+5. **Motstridiga påståenden** — Saker som sägs som motsäger varandra utan att det uppmärksammas
+6. **Saknade röster** — Vilka perspektiv/expertområden hade berikat samtalet?
+
+Formatera svaret som en strukturerad analys i markdown med tydliga rubriker.
+Var specifik — referera till vad som faktiskt sades och vad som saknades.
+Skriv på svenska. Max 500 ord.`;
+}

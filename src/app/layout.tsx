@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   title: 'Realtidstrans – AI-stöd för samtal',
   description:
     'Realtidstranskribering med AI-sammanfattningar, fördjupande frågor och publikinteraktion.',
+  manifest: '/manifest.json',
+  themeColor: '#3B82F6',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Realtidstrans',
+  },
 };
 
 export default function RootLayout({

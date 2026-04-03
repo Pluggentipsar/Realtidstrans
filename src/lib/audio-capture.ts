@@ -7,6 +7,16 @@ export class AudioCapture {
   private source: MediaStreamAudioSourceNode | null = null;
   private onChunk: ((chunk: ArrayBuffer) => void) | null = null;
 
+  // Offline buffering
+  private offlineBuffer: ArrayBuffer[] = [];
+  private isBuffering: boolean = false;
+  private maxBufferSize: number = 1000; // ~250 seconds at 4096 samples/16kHz
+
+  // Raw audio recording
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedChunks: Blob[] = [];
+  private isRecording: boolean = false;
+
   async start(onChunk: (chunk: ArrayBuffer) => void): Promise<void> {
     this.onChunk = onChunk;
 
@@ -23,7 +33,6 @@ export class AudioCapture {
     this.source = this.audioContext.createMediaStreamSource(this.stream);
 
     // Use ScriptProcessorNode for broad compatibility
-    // Buffer size of 4096 gives ~256ms chunks at 16kHz
     this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
     this.processor.onaudioprocess = (event) => {
@@ -34,7 +43,17 @@ export class AudioCapture {
         const s = Math.max(-1, Math.min(1, inputData[i]));
         pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
       }
-      this.onChunk?.(pcmData.buffer);
+
+      const buffer = pcmData.buffer;
+
+      if (this.isBuffering) {
+        // Offline: buffer locally
+        if (this.offlineBuffer.length < this.maxBufferSize) {
+          this.offlineBuffer.push(buffer.slice(0));
+        }
+      } else {
+        this.onChunk?.(buffer);
+      }
     };
 
     this.source.connect(this.processor);
@@ -42,6 +61,7 @@ export class AudioCapture {
   }
 
   stop(): void {
+    this.stopRecording();
     if (this.processor) {
       this.processor.disconnect();
       this.processor = null;
@@ -59,6 +79,83 @@ export class AudioCapture {
       this.stream = null;
     }
     this.onChunk = null;
+  }
+
+  // --- Offline Buffering ---
+
+  startBuffering(): void {
+    this.isBuffering = true;
+    this.offlineBuffer = [];
+  }
+
+  stopBuffering(): void {
+    this.isBuffering = false;
+  }
+
+  getBufferedChunks(): ArrayBuffer[] {
+    return this.offlineBuffer;
+  }
+
+  flushBuffer(): ArrayBuffer[] {
+    const chunks = [...this.offlineBuffer];
+    this.offlineBuffer = [];
+    return chunks;
+  }
+
+  getBufferSize(): number {
+    return this.offlineBuffer.length;
+  }
+
+  isOfflineBuffering(): boolean {
+    return this.isBuffering;
+  }
+
+  // --- Raw Audio Recording (backup) ---
+
+  startRecording(): void {
+    if (!this.stream || this.isRecording) return;
+
+    this.recordedChunks = [];
+    this.mediaRecorder = new MediaRecorder(this.stream, {
+      mimeType: 'audio/webm;codecs=opus',
+    });
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.start(1000); // Chunk every second
+    this.isRecording = true;
+  }
+
+  stopRecording(): void {
+    if (this.mediaRecorder && this.isRecording) {
+      this.mediaRecorder.stop();
+      this.isRecording = false;
+    }
+  }
+
+  getRecordingBlob(): Blob | null {
+    if (this.recordedChunks.length === 0) return null;
+    return new Blob(this.recordedChunks, { type: 'audio/webm;codecs=opus' });
+  }
+
+  downloadRecording(filename: string = 'session-recording.webm'): void {
+    const blob = this.getRecordingBlob();
+    if (!blob) return;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  isCurrentlyRecording(): boolean {
+    return this.isRecording;
   }
 
   getStream(): MediaStream | null {

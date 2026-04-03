@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  code        String   @unique // 6-digit audience join code
+  title       String
+  description String   @default("")
+  context     String   @default("") // Pre-session AI context
+  hostName    String
+  status      String   @default("setup") // setup, soundcheck, live, paused, ended
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  speakers           Speaker[]
+  transcriptSegments TranscriptSegment[]
+  summaries          AISummary[]
+  aiQuestions        AIQuestion[]
+  quotableMoments    QuotableMoment[]
+  audienceQuestions   AudienceQuestion[]
+  questionClusters   QuestionCluster[]
+  polls              Poll[]
+  reactions          Reaction[]
+  engagementSnapshots EngagementSnapshot[]
+  audioDevices       AudioDevice[]
+
+  @@index([code])
+  @@index([status])
+}
+
+model Speaker {
+  id             String   @id @default(uuid())
+  sessionId      String
+  name           String
+  role           String   @default("unknown")
+  voiceProfileId String?
+  color          String
+  createdAt      DateTime @default(now())
+
+  session            Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  transcriptSegments TranscriptSegment[]
+  quotableMoments    QuotableMoment[]
+
+  @@index([sessionId])
+}
+
+model TranscriptSegment {
+  id            String   @id @default(uuid())
+  sessionId     String
+  speakerId     String
+  speakerName   String
+  text          String
+  timestamp     Int      // ms from session start
+  endTimestamp  Int?
+  isFinal       Boolean  @default(false)
+  confidence    Float    @default(0)
+  wordTimestamps Json?   // Array of {word, startMs, endMs, confidence}
+  createdAt     DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speaker Speaker @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@index([sessionId, isFinal])
+}
+
+model AISummary {
+  id           String   @id @default(uuid())
+  sessionId    String
+  content      String
+  type         String   // interval, topic_shift, final_chronological, final_thematic, gap_analysis
+  coveringFrom Int
+  coveringTo   Int
+  topicLabel   String?
+  createdAt    DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, type])
+}
+
+model AIQuestion {
+  id             String   @id @default(uuid())
+  sessionId      String
+  question       String
+  category       String
+  relevanceScore Float
+  context        String
+  createdAt      DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model QuotableMoment {
+  id          String   @id @default(uuid())
+  sessionId   String
+  speakerId   String
+  speakerName String
+  quote       String
+  context     String
+  timestamp   Int
+  impactScore Float
+  category    String   // insight, provocative, emotional, humorous, key_argument
+  createdAt   DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speaker Speaker @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, impactScore])
+}
+
+model AudienceQuestion {
+  id         String   @id @default(uuid())
+  sessionId  String
+  text       String
+  authorName String?
+  votes      Int      @default(0)
+  status     String   @default("pending") // pending, highlighted, answered, clustered
+  clusterId  String?
+  submittedAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, votes])
+}
+
+model QuestionCluster {
+  id          String   @id @default(uuid())
+  sessionId   String
+  theme       String
+  summary     String
+  questionIds Json     // Array of question IDs
+  priority    Int
+  createdAt   DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Poll {
+  id        String   @id @default(uuid())
+  sessionId String
+  question  String
+  options   Json     // Array of {id, text, votes}
+  status    String   @default("active") // active, closed
+  createdAt DateTime @default(now())
+  closedAt  DateTime?
+
+  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pollVotes PollVote[]
+
+  @@index([sessionId, status])
+}
+
+model PollVote {
+  id       String @id @default(uuid())
+  pollId   String
+  optionId String
+  voterId  String // Socket ID or anonymous identifier
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, voterId])
+  @@index([pollId])
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  sessionId String
+  type      String   // thumbs_up, thinking, question, clap, surprised
+  timestamp DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+}
+
+model EngagementSnapshot {
+  id               String   @id @default(uuid())
+  sessionId        String
+  timestamp        Int      // ms from session start
+  reactionRate     Float    // reactions per minute
+  questionRate     Float    // questions per minute
+  activeUsers      Int
+  temperature      Float    // 0-100
+  dominantReaction String?
+  createdAt        DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+}
+
+model AudioDevice {
+  id         String   @id @default(uuid())
+  sessionId  String
+  deviceName String
+  speakerId  String?
+  isActive   Boolean  @default(true)
+  joinedAt   DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model SpeakerProfile {
+  id                   String   @id @default(uuid())
+  name                 String
+  sessionsCount        Int      @default(0)
+  totalSpeakingTimeMs  Int      @default(0)
+  favoriteWords        Json     @default("[]")
+  averageSentenceLength Float   @default(0)
+  topicsDiscussed      Json     @default("[]")
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+
+  @@index([name])
+}

@@ -39,6 +39,14 @@ export class TranscriptionSession {
       sdk.PropertyId.SpeechServiceConnection_LanguageIdMode,
       'Continuous'
     );
+
+    // Enable automatic punctuation and formatting
+    this.speechConfig.setProperty(
+      sdk.PropertyId.SpeechServiceResponse_PostProcessingOption,
+      'TrueText'
+    );
+    // Enable word-level timestamps
+    this.speechConfig.requestWordLevelTimestamps();
   }
 
   registerEnrolledSpeaker(voiceProfileId: string, speakerName: string): void {
