@@ -1,21 +1,25 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import Link from 'next/link';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Realtidstrans – AI-stöd för samtal',
   description:
     'Realtidstranskribering med AI-sammanfattningar, fördjupande frågor och publikinteraktion.',
   manifest: '/manifest.json',
-  themeColor: '#3B82F6',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Realtidstrans',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#3B82F6',
 };
 
 export default function RootLayout({
@@ -25,26 +29,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="sv">
-      <body className={`${inter.className} bg-gray-950 text-gray-100 min-h-screen`}>
+      <body className="font-sans bg-gray-950 text-gray-100 min-h-screen">
         <nav className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              <a href="/" className="text-xl font-bold text-white">
+              <Link href="/" className="text-xl font-bold text-white">
                 Realtids<span className="text-blue-400">trans</span>
-              </a>
+              </Link>
               <div className="flex gap-4">
-                <a
+                <Link
                   href="/session/new"
                   className="text-sm text-gray-300 hover:text-white transition"
                 >
                   Ny session
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/join"
                   className="text-sm text-gray-300 hover:text-white transition"
                 >
                   Gå med
-                </a>
+                </Link>
               </div>
             </div>
           </div>

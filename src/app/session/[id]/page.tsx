@@ -18,7 +18,6 @@ import {
   QUESTION_CATEGORY_LABELS,
   QUOTE_CATEGORY_LABELS,
   REACTION_EMOJIS,
-  ReactionType,
 } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
 

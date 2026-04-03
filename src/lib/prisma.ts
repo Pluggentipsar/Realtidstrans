@@ -2,16 +2,20 @@
 // Run `npx prisma generate` after setting up DATABASE_URL to enable database persistence.
 // Until then, the app uses the in-memory session store.
 
-let prisma: unknown = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let prisma: any = null;
 
-try {
-  // Dynamic import - will fail gracefully if prisma client hasn't been generated
-  const { PrismaClient } = require('@/generated/prisma');
-  const globalForPrisma = globalThis as unknown as { prisma: unknown };
-  prisma = globalForPrisma.prisma || new PrismaClient();
-  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-} catch {
-  // Prisma client not generated yet — using in-memory store
+export async function initPrisma(): Promise<void> {
+  if (prisma) return;
+  try {
+    // @ts-expect-error - Dynamic import of generated module that may not exist yet
+    const mod = await import('../generated/prisma');
+    const globalForPrisma = globalThis as unknown as { prisma: unknown };
+    prisma = globalForPrisma.prisma || new mod.PrismaClient();
+    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  } catch {
+    // Prisma client not generated yet
+  }
 }
 
 export { prisma };

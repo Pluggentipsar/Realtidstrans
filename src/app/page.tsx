@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-20">
@@ -12,12 +14,12 @@ export default function Home() {
           — allt i realtid.
         </p>
         <div className="flex gap-4 justify-center">
-          <a href="/session/new" className="btn-primary text-lg">
+          <Link href="/session/new" className="btn-primary text-lg">
             Skapa session
-          </a>
-          <a href="/join" className="btn-secondary text-lg">
+          </Link>
+          <Link href="/join" className="btn-secondary text-lg">
             Gå med som publik
-          </a>
+          </Link>
         </div>
       </div>
 

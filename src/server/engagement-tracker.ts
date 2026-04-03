@@ -119,7 +119,7 @@ export class EngagementTracker {
     return Math.round(Math.min(100, Math.max(0, score)));
   }
 
-  private getRecentReactionsByType(windowMs: number): Record<string, number> {
+  private getRecentReactionsByType(_windowMs: number): Record<string, number> {
     const reactions = sessionStore.getReactionCounts(this.sessionId);
     // Simplified: return all-time counts (for precise windowed counts, store timestamps)
     return reactions;
