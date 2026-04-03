@@ -8,6 +8,7 @@ import { TextSizeProvider } from '@/components/ui/text-size-provider';
 import { PresentationView } from '@/components/ui/presentation-view';
 import { AudioVisualizer, AudioLevelIndicator } from '@/components/ui/audio-visualizer';
 import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } from '@/components/ui/ai-status';
+import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
 import {
   Session,
   TranscriptSegment,
@@ -50,12 +51,18 @@ export default function LiveSessionPage() {
   const [reactionBursts, setReactionBursts] = useState<ReactionBurst[]>([]);
   const [topicShifts, setTopicShifts] = useState<Array<{ topic: string; timestamp: number }>>([]);
   const [isLive, setIsLive] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [gapAnalysis, setGapAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [aiStates, setAiStates] = useState<AIProcessState[]>(['idle']);
   const { notifications, addNotification } = useAINotifications();
+
+  // Recording
+  const recording = useRecording({
+    stream: audioStream,
+    sessionId,
+    sessionTitle: session?.title || 'session',
+  });
 
   // Poll creation
   const [showPollForm, setShowPollForm] = useState(false);
@@ -141,25 +148,20 @@ export default function LiveSessionPage() {
     audioCaptureRef.current = ac;
     await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
     setAudioStream(ac.getStream());
-    ac.startRecording();
-    setIsRecording(true);
+    // Recording auto-starts via useRecording hook
     setAiStates(['listening']);
     socketRef.current.emit('transcription:start', sessionId);
     setIsLive(true);
   }, [sessionId]);
 
   const stopSession = useCallback(() => {
+    recording.stopRecording();
     audioCaptureRef.current?.stop();
-    setIsRecording(false);
     setAudioStream(null);
     setAiStates(['idle']);
     audioCaptureRef.current = null;
     socketRef.current.emit('transcription:stop', sessionId);
     setIsLive(false);
-  }, [sessionId]);
-
-  const downloadRecording = useCallback(() => {
-    audioCaptureRef.current?.downloadRecording(`session-${sessionId}.webm`);
   }, [sessionId]);
 
   const analyzeGaps = useCallback(async () => {
@@ -402,15 +404,22 @@ export default function LiveSessionPage() {
         </div>
       )}
 
+      {/* Recording status */}
+      <RecordingControls
+        isRecording={recording.isRecording}
+        hasRecording={recording.hasRecording}
+        duration={recording.duration}
+        blobUrl={recording.blobUrl}
+        onStop={() => recording.stopRecording()}
+        onDownload={() => recording.downloadRecording()}
+      />
+
       {/* Controls */}
       <div className="card space-y-2">
         {!isLive ? (
           <button onClick={startSession} className="btn-primary w-full text-sm">Starta session</button>
         ) : (
           <button onClick={stopSession} className="btn-danger w-full text-sm">Avsluta session</button>
-        )}
-        {isRecording && isLive && (
-          <button onClick={downloadRecording} className="btn-secondary w-full text-sm">Ladda ner inspelning</button>
         )}
         <button onClick={analyzeGaps} disabled={isAnalyzing} className="btn-secondary w-full text-sm">
           {isAnalyzing ? 'Analyserar...' : 'Vad har vi missat?'}

@@ -35,18 +35,42 @@ export class TranscriptionSession {
       process.env.AZURE_SPEECH_REGION!
     );
     this.speechConfig.speechRecognitionLanguage = language;
+
+    // --- Optimal settings for Swedish real-time transcription ---
+
+    // Enable continuous language identification (helps if speakers switch languages)
     this.speechConfig.setProperty(
       sdk.PropertyId.SpeechServiceConnection_LanguageIdMode,
       'Continuous'
     );
 
-    // Enable automatic punctuation and formatting
+    // Enable automatic punctuation and ITN (Inverse Text Normalization)
+    // This converts spoken numbers/dates to written form and adds punctuation
     this.speechConfig.setProperty(
       sdk.PropertyId.SpeechServiceResponse_PostProcessingOption,
       'TrueText'
     );
-    // Enable word-level timestamps
+
+    // Enable word-level timestamps for precise quote attribution
     this.speechConfig.requestWordLevelTimestamps();
+
+    // Enable profanity filtering (mask) — appropriate for public events
+    this.speechConfig.setProfanity(sdk.ProfanityOption.Masked);
+
+    // Output format: detailed gives us confidence, timing, word-level data
+    this.speechConfig.outputFormat = sdk.OutputFormat.Detailed;
+
+    // Optimize for conversation scenario (vs dictation/interactive)
+    this.speechConfig.setProperty(
+      'SpeechContext-PhraseDetection.TrailingSilenceTimeout',
+      '2000' // 2s silence before ending a phrase (good for natural conversation)
+    );
+
+    // Stabilize partial results — reduces flickering in live display
+    this.speechConfig.setProperty(
+      sdk.PropertyId.SpeechServiceResponse_StablePartialResultThreshold,
+      '3' // Wait for 3 stable partials before showing
+    );
   }
 
   registerEnrolledSpeaker(voiceProfileId: string, speakerName: string): void {

@@ -40,7 +40,31 @@ function getClient(): Anthropic {
   return client;
 }
 
-const MODEL = process.env.AZURE_CLAUDE_DEPLOYMENT || 'claude-sonnet-4-20250514';
+// Dual-model strategy:
+// FAST (Haiku) — cheap, fast, for frequent lightweight tasks (topic shift, quote extraction)
+// DEEP (Sonnet) — powerful, for complex analysis (summaries, questions, gap analysis, final summaries)
+const MODEL_DEEP = process.env.AZURE_CLAUDE_DEPLOYMENT_DEEP || process.env.AZURE_CLAUDE_DEPLOYMENT || 'claude-sonnet-4-20250514';
+const MODEL_FAST = process.env.AZURE_CLAUDE_DEPLOYMENT_FAST || 'claude-haiku-4-5-20251001';
+
+type ModelTier = 'fast' | 'deep';
+
+// Which model to use for each function
+const MODEL_ROUTING: Record<string, ModelTier> = {
+  summary: 'deep',
+  questions: 'deep',
+  quoteExtraction: 'fast',       // Frequent, pattern-matching task
+  topicShift: 'fast',            // Every 30s, simple JSON response
+  gapAnalysis: 'deep',           // Complex analysis
+  gapAnalysis_chunk: 'fast',     // Pre-summarization chunks
+  finalSummary: 'deep',          // Most important output
+  finalSummary_chunk: 'fast',    // Pre-summarization chunks
+  audienceClustering: 'fast',    // Grouping task
+};
+
+function getModelForFunction(functionName: string): string {
+  const tier = MODEL_ROUTING[functionName] || 'deep';
+  return tier === 'fast' ? MODEL_FAST : MODEL_DEEP;
+}
 
 // Global rate limiter (shared across all sessions)
 const rateLimiter = new RateLimiter(
@@ -81,14 +105,16 @@ async function callClaude(
     throw new Error('RATE_LIMITED');
   }
 
+  const model = getModelForFunction(functionName);
+  const tier = MODEL_ROUTING[functionName] || 'deep';
   const inputTokens = estimateTokens(systemPrompt + userMessage);
-  console.log(`[token-manager] ${functionName}: ~${inputTokens} input tokens, max ${maxOutputTokens} output`);
+  console.log(`[token-manager] ${functionName} [${tier}/${model}]: ~${inputTokens} input tokens, max ${maxOutputTokens} output`);
 
   rateLimiter.recordRequest();
 
   const anthropic = getClient();
   const response = await anthropic.messages.create({
-    model: MODEL,
+    model,
     max_tokens: maxOutputTokens,
     system: systemPrompt,
     messages: [{ role: 'user', content: userMessage }],
