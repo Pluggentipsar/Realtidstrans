@@ -96,7 +96,7 @@ export function LiveSpeakerBar({
       <div className="mt-3 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
         <div className="flex items-center gap-1">
           <span className="text-xs flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
-            Rikta fragor till:
+            Rikta frågor till:
           </span>
           <div className="flex gap-1 flex-wrap">
             {QUESTION_TARGET_OPTIONS.filter((o) => o.key !== 'specific').map((option) => (
@@ -117,7 +117,7 @@ export function LiveSpeakerBar({
         </div>
         {questionTarget === 'specific' && specificSpeaker && (
           <div className="mt-1 text-xs" style={{ color: 'var(--color-accent)' }}>
-            &#x1F3AF; Riktar fragor till: {specificSpeaker}
+            &#x1F3AF; Riktar frågor till: {specificSpeaker}
           </div>
         )}
       </div>

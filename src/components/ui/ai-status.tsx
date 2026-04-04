@@ -24,11 +24,11 @@ const STATUS_MAP: Record<AIProcessState, StatusConfig> = {
   idle: { label: '', icon: '', color: '', pulse: false },
   listening: { label: 'Lyssnar', icon: '\uD83C\uDFA4', color: 'var(--color-accent)', pulse: true },
   summarizing: { label: 'Sammanfattar', icon: '\u2728', color: '#a78bfa', pulse: true },
-  generating_questions: { label: 'Genererar fragor', icon: '\uD83E\uDDE0', color: '#f472b6', pulse: true },
+  generating_questions: { label: 'Genererar frågor', icon: '\uD83E\uDDE0', color: '#f472b6', pulse: true },
   extracting_quotes: { label: 'Extraherar citat', icon: '\uD83D\uDCAC', color: '#fbbf24', pulse: true },
-  detecting_topic: { label: 'Analyserar amne', icon: '\uD83D\uDD0D', color: '#34d399', pulse: true },
+  detecting_topic: { label: 'Analyserar ämne', icon: '\uD83D\uDD0D', color: '#34d399', pulse: true },
   analyzing_gaps: { label: 'Analyserar luckor', icon: '\uD83E\uDDE9', color: '#fb923c', pulse: true },
-  clustering: { label: 'Grupperar fragor', icon: '\uD83D\uDCCA', color: '#60a5fa', pulse: true },
+  clustering: { label: 'Grupperar frågor', icon: '\uD83D\uDCCA', color: '#60a5fa', pulse: true },
 };
 
 interface AIStatusBarProps {

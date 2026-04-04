@@ -76,6 +76,8 @@ export default function ModeratorPage() {
     localStorage.setItem(`highlighted_${sessionId}`, JSON.stringify([...highlightedAiIds]));
   }, [highlightedAiIds, sessionId]);
   const [projectorView, setProjectorView] = useState('transcript');
+  const [projectorSecondary, setProjectorSecondary] = useState<string | null>(null);
+  const [showAdvancedProjector, setShowAdvancedProjector] = useState(false);
 
   // Poll creation
   const [showPollForm, setShowPollForm] = useState(false);
@@ -138,9 +140,10 @@ export default function ModeratorPage() {
     if (source === 'ai') setDismissedAiIds((p) => new Set(p).add(id));
   }, [sessionId]);
 
-  const setProjector = useCallback((view: string) => {
+  const setProjector = useCallback((view: string, secondary?: string | null) => {
     setProjectorView(view);
-    socketRef.current.emit('moderator:set_projector_view', { sessionId, view });
+    setProjectorSecondary(secondary ?? null);
+    socketRef.current.emit('moderator:set_projector_view', { sessionId, view, secondary: secondary || undefined });
   }, [sessionId]);
 
   const changeFocus = useCallback((focus: QuestionFocus) => {
@@ -159,8 +162,8 @@ export default function ModeratorPage() {
       setIsLive(true);
     } catch (err) {
       const msg = err instanceof DOMException && err.name === 'NotAllowedError'
-        ? 'Mikrofonbehorighet nekad. Tillat mikrofon i webblasaren.'
-        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon ar ansluten.';
+        ? 'Mikrofonbehörighet nekad. Tillåt mikrofon i webbläsaren.'
+        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon är ansluten.';
       setAudioError(msg);
     }
   }, [sessionId]);
@@ -182,8 +185,8 @@ export default function ModeratorPage() {
   const [pollError, setPollError] = useState('');
   const createPoll = useCallback(() => {
     const validOptions = pollOptions.filter((o) => o.trim());
-    if (!pollQuestion.trim()) { setPollError('Ange en fraga'); return; }
-    if (validOptions.length < 2) { setPollError('Minst 2 alternativ kravs'); return; }
+    if (!pollQuestion.trim()) { setPollError('Ange en fråga'); return; }
+    if (validOptions.length < 2) { setPollError('Minst 2 alternativ krävs'); return; }
     setPollError('');
     socketRef.current.emit('poll:create', { sessionId, question: pollQuestion, options: validOptions });
     setPollQuestion(''); setPollOptions(['', '']); setShowPollForm(false);
@@ -207,7 +210,7 @@ export default function ModeratorPage() {
   return (
     <div className="h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 h-10 flex-shrink-0" style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border-subtle)' }}>
+      <div className="flex items-center justify-between px-4 h-11 flex-shrink-0" style={{ background: 'rgba(9,9,11,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold">{session.title}</span>
           {isLive && <span className="badge-live text-xs">LIVE</span>}
@@ -215,7 +218,7 @@ export default function ModeratorPage() {
             onClick={() => navigator.clipboard.writeText(session.code)}
             className="font-mono text-sm font-bold px-2 py-0.5 rounded transition-all hover:opacity-70"
             style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)' }}
-            title="Klicka for att kopiera sessionskod"
+            title="Klicka för att kopiera sessionskod"
           >
             {session.code}
           </button>
@@ -236,18 +239,26 @@ export default function ModeratorPage() {
           ) : (
             <button onClick={stopSession} className="btn-danger text-xs py-1.5 px-3">Avsluta</button>
           )}
-          <a href={`/session/${sessionId}`} className="btn-ghost text-xs">Projektor</a>
+          <a
+            href={`/session/${sessionId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs py-1.5 px-3 rounded-lg font-medium transition-all"
+            style={{ background: 'var(--color-accent)', color: 'white' }}
+          >
+            &#x1F4FA; Öppna projektorvy
+          </a>
           <a href={`/session/${sessionId}/dashboard`} className="btn-ghost text-xs">Dashboard</a>
         </div>
       </div>
 
       {/* Main 3-column layout */}
-      <div className="grid grid-cols-[1fr_380px_320px] h-[calc(100%-2.5rem)] gap-0">
+      <div className="grid grid-cols-[1fr_380px_320px] h-[calc(100%-2.75rem)] gap-0">
 
         {/* LEFT: Live transcript */}
-        <div className="overflow-y-auto p-4" style={{ borderRight: '1px solid var(--color-border-subtle)' }}>
+        <div className="overflow-y-auto p-4" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-secondary)' }}>Transkript</h2>
+            <h2 className="text-[11px] tracking-widest uppercase font-medium" style={{ color: 'var(--color-text-muted)' }}>Transkript</h2>
             {/* Speaker time bar */}
             {speakerAnalytics.length > 0 && (
               <div className="flex items-center gap-2">
@@ -282,9 +293,9 @@ export default function ModeratorPage() {
         </div>
 
         {/* MIDDLE: AI Questions + Quotes (the moderator's main tool) */}
-        <div className="overflow-y-auto" style={{ borderRight: '1px solid var(--color-border-subtle)' }}>
+        <div className="overflow-y-auto" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
           {/* Focus selector */}
-          <div className="p-3 flex items-center gap-2 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+          <div className="p-3 flex items-center gap-2 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Fokus:</span>
             {QUESTION_FOCUS_OPTIONS.map((opt) => (
               <button
@@ -292,7 +303,7 @@ export default function ModeratorPage() {
                 onClick={() => changeFocus(opt.key)}
                 className="px-2 py-0.5 rounded-md text-xs transition-all"
                 style={{
-                  background: questionFocus === opt.key ? 'var(--color-accent)' : 'var(--color-surface-raised)',
+                  background: questionFocus === opt.key ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
                   color: questionFocus === opt.key ? 'white' : 'var(--color-text-secondary)',
                 }}
                 title={opt.description}
@@ -308,7 +319,7 @@ export default function ModeratorPage() {
                 onClick={() => changeTarget(t)}
                 className="px-2 py-0.5 rounded-md text-xs transition-all"
                 style={{
-                  background: questionTarget === t ? 'var(--color-accent)' : 'var(--color-surface-raised)',
+                  background: questionTarget === t ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
                   color: questionTarget === t ? 'white' : 'var(--color-text-secondary)',
                 }}
               >
@@ -319,13 +330,13 @@ export default function ModeratorPage() {
 
           {/* Picked questions (highlighted) */}
           {pickedAiQuestions.length > 0 && (
-            <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)', background: 'rgba(99,102,241,0.05)' }}>
-              <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-accent)' }}>VALDA FRAGOR ({pickedAiQuestions.length})</h3>
+            <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(99,102,241,0.05)' }}>
+              <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-accent)' }}>Valda frågor ({pickedAiQuestions.length})</h3>
               {pickedAiQuestions.map((q) => (
                 <div key={q.id} className="mb-2 p-2 rounded-lg" style={{ background: 'var(--color-accent-subtle)', border: '1px solid rgba(99,102,241,0.2)' }}>
                   <p className="text-sm font-medium leading-relaxed">{q.question}</p>
                   {q.targetSpeaker && <span className="text-xs" style={{ color: 'var(--color-accent)' }}>&#x1F3AF; {q.targetSpeaker}</span>}
-                  <button onClick={() => dismissQuestion(q.id, 'ai')} className="btn-ghost text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>Stalld</button>
+                  <button onClick={() => dismissQuestion(q.id, 'ai')} className="btn-ghost text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>Ställd</button>
                 </div>
               ))}
             </div>
@@ -333,12 +344,12 @@ export default function ModeratorPage() {
 
           {/* New AI questions */}
           <div className="p-3">
-            <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              AI-FRAGOR ({newAiQuestions.length})
+            <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              AI-frågor ({newAiQuestions.length})
             </h3>
             {newAiQuestions.length === 0 && (
               <p className="text-xs py-4 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                {isLive ? 'Vantar pa nya AI-fragor...' : 'Starta sessionen'}
+                {isLive ? 'Väntar på nya AI-frågor...' : 'Starta sessionen'}
               </p>
             )}
             {newAiQuestions.slice().reverse().map((q) => (
@@ -347,17 +358,17 @@ export default function ModeratorPage() {
                   <div className="flex flex-col gap-1 flex-shrink-0 mt-0.5">
                     <button
                       onClick={() => highlightQuestion(q.id, 'ai')}
-                      className="w-7 h-7 rounded-md flex items-center justify-center text-sm transition-all hover:scale-110"
-                      style={{ background: 'var(--color-success)', color: 'white' }}
-                      title="Valj fraga"
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-xs transition-all hover:scale-110"
+                      style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.2)' }}
+                      title="Välj fråga"
                     >
                       &#x2713;
                     </button>
                     <button
                       onClick={() => dismissQuestion(q.id, 'ai')}
-                      className="w-7 h-7 rounded-md flex items-center justify-center text-sm transition-all hover:scale-110"
-                      style={{ background: 'var(--color-surface-raised)', color: 'var(--color-text-muted)' }}
-                      title="Avfarda"
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-xs transition-all hover:scale-110"
+                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-muted)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      title="Avfärda"
                     >
                       &#x2715;
                     </button>
@@ -378,8 +389,8 @@ export default function ModeratorPage() {
 
           {/* Quotes */}
           {quotes.length > 0 && (
-            <div className="p-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>CITAT ({quotes.length})</h3>
+            <div className="p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+              <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Citat ({quotes.length})</h3>
               {quotes.slice(-5).reverse().map((q) => (
                 <div key={q.id} className="mb-2 quote-block" style={{ padding: '0.5rem 0.75rem', margin: '0.25rem 0' }}>
                   <p className="text-sm italic">&ldquo;{q.quote}&rdquo;</p>
@@ -401,7 +412,7 @@ export default function ModeratorPage() {
 
           {/* Recording */}
           {(recording.isRecording || recording.hasRecording) && (
-            <div className="p-2" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+            <div className="p-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
               <RecordingControls
                 isRecording={recording.isRecording}
                 hasRecording={recording.hasRecording}
@@ -414,28 +425,102 @@ export default function ModeratorPage() {
           )}
 
           {/* Projector control */}
-          <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-            <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>PROJEKTORVY</h3>
-            <div className="flex gap-1 flex-wrap">
+          <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[11px] tracking-widest uppercase font-medium" style={{ color: 'var(--color-text-muted)' }}>Projektorvy</h3>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {projectorSecondary ? '⊞ Delad' : 'Enkel'}
+              </span>
+            </div>
+
+            {/* Single view buttons */}
+            <div className="flex gap-1 flex-wrap mb-2">
               {['transcript', 'summary', 'questions', 'quotes', 'audience'].map((v) => (
                 <button
                   key={v}
                   onClick={() => setProjector(v)}
                   className="px-2 py-1 rounded-md text-xs transition-all"
                   style={{
-                    background: projectorView === v ? 'var(--color-accent)' : 'var(--color-surface-raised)',
-                    color: projectorView === v ? 'white' : 'var(--color-text-secondary)',
+                    background: projectorView === v && !projectorSecondary ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
+                    color: projectorView === v && !projectorSecondary ? 'white' : 'var(--color-text-secondary)',
                   }}
                 >
-                  {v === 'transcript' ? 'Transkript' : v === 'summary' ? 'Sammanfattning' : v === 'questions' ? 'Fragor' : v === 'quotes' ? 'Citat' : 'Publik'}
+                  {v === 'transcript' ? 'Transkript' : v === 'summary' ? 'Sammanfattning' : v === 'questions' ? 'Frågor' : v === 'quotes' ? 'Citat' : 'Publik'}
                 </button>
               ))}
             </div>
+
+            {/* Split presets */}
+            <div className="flex gap-1 flex-wrap mb-1">
+              {[
+                { label: 'Transkript + Sammanfattning', primary: 'transcript', secondary: 'summary' },
+                { label: 'Sammanfattning + Frågor', primary: 'summary', secondary: 'questions' },
+                { label: 'Frågor + Publik', primary: 'questions', secondary: 'audience' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => setProjector(preset.primary, preset.secondary)}
+                  className="px-2 py-1 rounded-md text-xs transition-all"
+                  style={{
+                    background: projectorView === preset.primary && projectorSecondary === preset.secondary ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
+                    color: projectorView === preset.primary && projectorSecondary === preset.secondary ? 'white' : 'var(--color-text-muted)',
+                    border: `1px solid ${projectorView === preset.primary && projectorSecondary === preset.secondary ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)'}`,
+                  }}
+                >
+                  ⊞ {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Advanced: custom split */}
+            <button
+              onClick={() => setShowAdvancedProjector(!showAdvancedProjector)}
+              className="text-xs mt-1"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              {showAdvancedProjector ? '▾ Dölj anpassad' : '▸ Anpassa split'}
+            </button>
+            {showAdvancedProjector && (
+              <div className="mt-2 space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs w-12" style={{ color: 'var(--color-text-muted)' }}>Vänster:</span>
+                  {['transcript', 'summary', 'questions', 'quotes', 'audience'].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setProjector(v, projectorSecondary || 'summary')}
+                      className="px-1.5 py-0.5 rounded text-xs transition-all"
+                      style={{
+                        background: projectorView === v ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
+                        color: projectorView === v ? 'white' : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {v === 'transcript' ? '🎤' : v === 'summary' ? '📝' : v === 'questions' ? '🧠' : v === 'quotes' ? '✨' : '👥'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs w-12" style={{ color: 'var(--color-text-muted)' }}>Höger:</span>
+                  {['transcript', 'summary', 'questions', 'quotes', 'audience'].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setProjector(projectorView, v)}
+                      className="px-1.5 py-0.5 rounded text-xs transition-all"
+                      style={{
+                        background: projectorSecondary === v ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
+                        color: projectorSecondary === v ? 'white' : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {v === 'transcript' ? '🎤' : v === 'summary' ? '📝' : v === 'questions' ? '🧠' : v === 'quotes' ? '✨' : '👥'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Engagement + Reactions */}
           {engagement && (
-            <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+            <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Engagemang</span>
                 <span className="text-sm font-bold" style={{ color: engagement.temperature > 70 ? 'var(--color-danger)' : 'var(--color-accent)' }}>{engagement.temperature}</span>
@@ -455,9 +540,9 @@ export default function ModeratorPage() {
 
           {/* Prepared questions from briefing */}
           {session.briefing?.preparedQuestions && session.briefing.preparedQuestions.length > 0 && (
-            <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-warning)' }}>
-                FORBEREDDA FRAGOR ({session.briefing.preparedQuestions.filter((q: PreparedQuestion) => q.status === 'pending').length}/{session.briefing.preparedQuestions.length})
+            <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-warning)' }}>
+                Förberedda frågor ({session.briefing.preparedQuestions.filter((q: PreparedQuestion) => q.status === 'pending').length}/{session.briefing.preparedQuestions.length})
               </h3>
               {session.briefing.preparedQuestions.map((q: PreparedQuestion) => (
                 <div key={q.id} className="flex items-start gap-2 mb-2" style={{ opacity: q.status !== 'pending' ? 0.4 : 1 }}>
@@ -472,11 +557,11 @@ export default function ModeratorPage() {
                     }}
                     className="w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0 mt-0.5 transition-all"
                     style={{
-                      background: q.status === 'asked' ? 'var(--color-success)' : q.priority === 'must_ask' ? 'rgba(239,68,68,0.2)' : 'var(--color-surface-raised)',
+                      background: q.status === 'asked' ? 'var(--color-success)' : q.priority === 'must_ask' ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.04)',
                       color: q.status === 'asked' ? 'white' : q.priority === 'must_ask' ? 'var(--color-danger)' : 'var(--color-text-muted)',
                       border: `1px solid ${q.status === 'asked' ? 'var(--color-success)' : q.priority === 'must_ask' ? 'rgba(239,68,68,0.4)' : 'var(--color-border)'}`,
                     }}
-                    title={q.status === 'pending' ? 'Markera som stalld' : 'Markera som ej stalld'}
+                    title={q.status === 'pending' ? 'Markera som ställd' : 'Markera som ej ställd'}
                   >
                     {q.status === 'asked' ? '\u2713' : q.priority === 'must_ask' ? '!' : '\u25CB'}
                   </button>
@@ -490,12 +575,12 @@ export default function ModeratorPage() {
           )}
 
           {/* Audience questions */}
-          <div className="p-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-            <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              PUBLIKFRAGOR ({audienceQuestions.length})
+          <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              Publikfrågor ({audienceQuestions.length})
             </h3>
             {sortedAudienceQs.length === 0 && (
-              <p className="text-xs text-center py-3" style={{ color: 'var(--color-text-muted)' }}>Inga fragor fran publiken annu</p>
+              <p className="text-xs text-center py-3" style={{ color: 'var(--color-text-muted)' }}>Inga frågor från publiken ännu</p>
             )}
             {sortedAudienceQs.slice(0, 15).map((q) => (
               <div key={q.id} className="flex items-start gap-2 mb-2">
@@ -504,7 +589,7 @@ export default function ModeratorPage() {
                   <button
                     onClick={() => highlightQuestion(q.id, 'audience')}
                     className="w-6 h-6 rounded flex items-center justify-center text-xs"
-                    style={{ background: q.status === 'highlighted' ? 'var(--color-success)' : 'var(--color-surface-raised)', color: q.status === 'highlighted' ? 'white' : 'var(--color-text-muted)' }}
+                    style={{ background: q.status === 'highlighted' ? 'var(--color-success)' : 'rgba(255,255,255,0.04)', color: q.status === 'highlighted' ? 'white' : 'var(--color-text-muted)' }}
                   >
                     {q.status === 'highlighted' ? '\u2713' : '\u2191'}
                   </button>
@@ -518,10 +603,10 @@ export default function ModeratorPage() {
 
             {/* Clusters */}
             {clusters.length > 0 && (
-              <div className="mt-3 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                <span className="text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>TEMAN</span>
+              <div className="mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                <span className="text-[11px] tracking-widest uppercase font-medium" style={{ color: 'var(--color-text-muted)' }}>Teman</span>
                 {clusters.map((c) => (
-                  <div key={c.id} className="mt-1.5 p-2 rounded-lg" style={{ background: 'var(--color-surface-raised)' }}>
+                  <div key={c.id} className="mt-1.5 p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
                     <span className="text-xs font-medium">{c.theme}</span>
                     <span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>({c.questionIds.length})</span>
                   </div>
@@ -532,12 +617,12 @@ export default function ModeratorPage() {
 
           {/* Quick poll creation */}
           <div className="p-3">
-            <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>OMROSTNING</h3>
+            <h3 className="text-[11px] tracking-widest uppercase font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Omröstning</h3>
             {!showPollForm ? (
-              <button onClick={() => setShowPollForm(true)} className="btn-secondary text-xs w-full py-1.5">Skapa omrostning</button>
+              <button onClick={() => setShowPollForm(true)} className="btn-secondary text-xs w-full py-1.5">Skapa omröstning</button>
             ) : (
               <div className="space-y-2">
-                <input className="input text-xs" placeholder="Fraga..." value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
+                <input className="input text-xs" placeholder="Fråga..." value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
                 {pollOptions.map((o, i) => (
                   <input key={i} className="input text-xs" placeholder={`Alt ${i+1}`} value={o} onChange={(e) => { const n=[...pollOptions]; n[i]=e.target.value; setPollOptions(n); }} />
                 ))}
@@ -552,10 +637,10 @@ export default function ModeratorPage() {
 
             {/* Active polls */}
             {polls.filter((p) => p.status === 'active').map((poll) => (
-              <div key={poll.id} className="mt-2 p-2 rounded-lg" style={{ background: 'var(--color-surface-raised)' }}>
+              <div key={poll.id} className="mt-2 p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <div className="flex justify-between mb-1">
                   <span className="text-xs font-medium">{poll.question}</span>
-                  <button onClick={() => socketRef.current.emit('poll:close', { sessionId, pollId: poll.id })} className="text-xs" style={{ color: 'var(--color-danger)' }}>Stang</button>
+                  <button onClick={() => socketRef.current.emit('poll:close', { sessionId, pollId: poll.id })} className="text-xs" style={{ color: 'var(--color-danger)' }}>Stäng</button>
                 </div>
                 {poll.options.map((opt: PollOption) => {
                   const total = poll.options.reduce((s: number, o: PollOption) => s + o.votes, 0);

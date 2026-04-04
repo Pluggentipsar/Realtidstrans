@@ -104,19 +104,19 @@ export default function NewSessionPage() {
     { key: 'basic' as const, label: 'Grundinfo', required: true },
     { key: 'briefing' as const, label: 'Briefing' },
     { key: 'speakers' as const, label: `Talare (${speakerBios.length})` },
-    { key: 'questions' as const, label: `Fragor (${preparedQuestions.length})` },
-    { key: 'settings' as const, label: 'Installningar' },
+    { key: 'questions' as const, label: `Frågor (${preparedQuestions.length})` },
+    { key: 'settings' as const, label: 'Inställningar' },
   ];
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-2">Ny session</h1>
-      <p className="mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-        Ju mer kontext du ger, desto vassare blir AI:ns fragor och insikter.
+    <div className="max-w-2xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-semibold tracking-tight mb-2" style={{ letterSpacing: '-0.02em' }}>Ny session</h1>
+      <p className="text-[13px] mb-8" style={{ color: 'var(--color-text-secondary)' }}>
+        Ju mer kontext du ger, desto vassare blir AI:ns frågor och insikter.
       </p>
 
       {/* Tab nav */}
-      <div className="tab-bar mb-6">
+      <div className="tab-bar mb-8">
         {tabs.map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)} className={`tab-item ${activeTab === t.key ? 'tab-item-active' : ''}`}>
             {t.label}
@@ -127,27 +127,27 @@ export default function NewSessionPage() {
       <form onSubmit={handleSubmit}>
         {/* === BASIC === */}
         {activeTab === 'basic' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Titel *</label>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Titel *</label>
               <input className="input" placeholder="t.ex. Panelsamtal om AI i skolan" value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Ditt namn (moderator) *</label>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Ditt namn (moderator) *</label>
               <input className="input" placeholder="t.ex. Anna Andersson" value={hostName} onChange={(e) => setHostName(e.target.value)} required />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Format</label>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Format</label>
               <div className="grid grid-cols-3 gap-2">
                 {(Object.entries(SESSION_FORMAT_LABELS) as Array<[SessionFormat, string]>).map(([key, label]) => (
-                  <button key={key} type="button" onClick={() => setFormat(key)} className="px-3 py-2 rounded-lg text-sm transition-all" style={{ background: format === key ? 'var(--color-accent)' : 'var(--color-surface-raised)', color: format === key ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${format === key ? 'var(--color-accent)' : 'var(--color-border)'}` }}>
+                  <button key={key} type="button" onClick={() => setFormat(key)} className="px-3 py-2 rounded-lg text-[13px] transition-all" style={{ background: format === key ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)', color: format === key ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${format === key ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)'}` }}>
                     {label}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Beskrivning (visas for publiken)</label>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Beskrivning (visas för publiken)</label>
               <textarea className="textarea" rows={2} placeholder="Kort beskrivning..." value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
           </div>
@@ -155,27 +155,27 @@ export default function NewSessionPage() {
 
         {/* === BRIEFING === */}
         {activeTab === 'briefing' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Amne — vad handlar sessionen om?</label>
-              <textarea className="textarea" rows={2} placeholder="t.ex. Hur AI paverkar grundskolan — pedagogik, integritet och likvardighet" value={topic} onChange={(e) => setTopic(e.target.value)} />
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Ämne — vad handlar sessionen om?</label>
+              <textarea className="textarea" rows={2} placeholder="t.ex. Hur AI påverkar grundskolan — pedagogik, integritet och likvärdighet" value={topic} onChange={(e) => setTopic(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Mal — vad ska publiken ta med sig?</label>
-              <textarea className="textarea" rows={2} placeholder="t.ex. Forstaelse for bade mojligheter och risker med AI i klassrummet" value={goal} onChange={(e) => setGoal(e.target.value)} />
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Mål — vad ska publiken ta med sig?</label>
+              <textarea className="textarea" rows={2} placeholder="t.ex. Förståelse för både möjligheter och risker med AI i klassrummet" value={goal} onChange={(e) => setGoal(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Bakgrundsmaterial</label>
-              <textarea className="textarea" rows={4} placeholder="Rapporter, statistik, artiklar, citat — allt AI:n bor kanna till for att stalla bra fragor" value={backgroundMaterial} onChange={(e) => setBackgroundMaterial(e.target.value)} />
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>Klistra in relevant fakta, data eller lankar. AI:n anvander detta for att vara val insatt.</p>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Bakgrundsmaterial</label>
+              <textarea className="textarea" rows={4} placeholder="Rapporter, statistik, artiklar, citat — allt AI:n bör känna till för att ställa bra frågor" value={backgroundMaterial} onChange={(e) => setBackgroundMaterial(e.target.value)} />
+              <p className="text-xs mt-1.5" style={{ color: 'var(--color-text-muted)' }}>Klistra in relevant fakta, data eller länkar. AI:n använder detta för att vara väl insatt.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Dagordning / Agenda</label>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Dagordning / Agenda</label>
               {agenda.map((item, i) => (
                 <div key={item.id} className="flex gap-2 mb-2">
-                  <span className="text-sm font-mono mt-2" style={{ color: 'var(--color-text-muted)' }}>{i+1}.</span>
+                  <span className="text-[13px] font-mono mt-2" style={{ color: 'var(--color-text-muted)' }}>{i+1}.</span>
                   <div className="flex-1 space-y-1">
-                    <input className="input text-sm" placeholder="Amne/rubrik" value={item.title} onChange={(e) => updateAgendaItem(item.id, { title: e.target.value })} />
+                    <input className="input text-sm" placeholder="Ämne/rubrik" value={item.title} onChange={(e) => updateAgendaItem(item.id, { title: e.target.value })} />
                     <div className="flex gap-2">
                       <input className="input text-sm flex-1" placeholder="Beskrivning (valfritt)" value={item.description} onChange={(e) => updateAgendaItem(item.id, { description: e.target.value })} />
                       <input className="input text-sm" style={{ width: '80px' }} placeholder="min" type="number" value={item.durationMinutes || ''} onChange={(e) => updateAgendaItem(item.id, { durationMinutes: parseInt(e.target.value) || undefined })} />
@@ -184,24 +184,24 @@ export default function NewSessionPage() {
                   <button type="button" onClick={() => removeAgendaItem(item.id)} className="btn-ghost text-xs mt-2" style={{ color: 'var(--color-danger)' }}>Ta bort</button>
                 </div>
               ))}
-              <button type="button" onClick={addAgendaItem} className="btn-ghost text-sm" style={{ color: 'var(--color-accent)' }}>+ Lagg till punkt</button>
+              <button type="button" onClick={addAgendaItem} className="btn-ghost text-[13px]" style={{ color: 'var(--color-accent-hover)' }}>+ Lägg till punkt</button>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Undvik dessa amnen</label>
-              <input className="input" placeholder="t.ex. Personliga fragor om familj, pagaende rattsfall" value={avoidTopics} onChange={(e) => setAvoidTopics(e.target.value)} />
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Undvik dessa ämnen</label>
+              <input className="input" placeholder="t.ex. Personliga frågor om familj, pågående rättsfall" value={avoidTopics} onChange={(e) => setAvoidTopics(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Sarskilda instruktioner till AI:n</label>
-              <textarea className="textarea" rows={2} placeholder="t.ex. Fokusera pa praktiska exempel, undvik akademiskt sprak" value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} />
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Särskilda instruktioner till AI:n</label>
+              <textarea className="textarea" rows={2} placeholder="t.ex. Fokusera på praktiska exempel, undvik akademiskt språk" value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} />
             </div>
           </div>
         )}
 
         {/* === SPEAKERS === */}
         {activeTab === 'speakers' && (
-          <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Beskriv talarna sa AI:n kan referera till deras expertis och stalla riktade fragor.
+          <div className="space-y-5">
+            <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
+              Beskriv talarna så AI:n kan referera till deras expertis och ställa riktade frågor.
             </p>
             {speakerBios.map((bio, idx) => (
               <div key={idx} className="card space-y-2">
@@ -214,47 +214,47 @@ export default function NewSessionPage() {
                   <input className="input text-sm" placeholder="Titel / Roll" value={bio.title} onChange={(e) => updateSpeaker(idx, { title: e.target.value })} />
                 </div>
                 <input className="input text-sm" placeholder="Organisation" value={bio.organization} onChange={(e) => updateSpeaker(idx, { organization: e.target.value })} />
-                <input className="input text-sm" placeholder="Expertomrade — vad ar de kanda for?" value={bio.expertise} onChange={(e) => updateSpeaker(idx, { expertise: e.target.value })} />
-                <input className="input text-sm" placeholder="Kand standpunkt i fragan (valfritt)" value={bio.stance || ''} onChange={(e) => updateSpeaker(idx, { stance: e.target.value })} />
-                <textarea className="textarea text-sm" rows={2} placeholder="Ovrig bakgrund (valfritt)" value={bio.background || ''} onChange={(e) => updateSpeaker(idx, { background: e.target.value })} />
+                <input className="input text-sm" placeholder="Expertområde — vad är de kända för?" value={bio.expertise} onChange={(e) => updateSpeaker(idx, { expertise: e.target.value })} />
+                <input className="input text-sm" placeholder="Känd ståndpunkt i frågan (valfritt)" value={bio.stance || ''} onChange={(e) => updateSpeaker(idx, { stance: e.target.value })} />
+                <textarea className="textarea text-sm" rows={2} placeholder="Övrig bakgrund (valfritt)" value={bio.background || ''} onChange={(e) => updateSpeaker(idx, { background: e.target.value })} />
               </div>
             ))}
-            <button type="button" onClick={addSpeaker} className="btn-secondary text-sm w-full">+ Lagg till talare</button>
+            <button type="button" onClick={addSpeaker} className="btn-secondary text-[13px] w-full">+ Lägg till talare</button>
           </div>
         )}
 
         {/* === PREPARED QUESTIONS === */}
         {activeTab === 'questions' && (
-          <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Forberedda fragor visas for AI:n som kontext och i moderatorvyn som en checklista.
+          <div className="space-y-5">
+            <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
+              Förberedda frågor visas för AI:n som kontext och i moderatorvyn som en checklista.
             </p>
             {preparedQuestions.map((q) => (
               <div key={q.id} className="card" style={{ padding: '0.75rem' }}>
                 <div className="flex gap-2 mb-2">
-                  <textarea className="textarea text-sm flex-1" rows={2} placeholder="Fragan..." value={q.question} onChange={(e) => updateQuestion(q.id, { question: e.target.value })} />
+                  <textarea className="textarea text-sm flex-1" rows={2} placeholder="Frågan..." value={q.question} onChange={(e) => updateQuestion(q.id, { question: e.target.value })} />
                   <button type="button" onClick={() => removeQuestion(q.id)} className="btn-ghost text-xs self-start" style={{ color: 'var(--color-danger)' }}>X</button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input className="input text-xs" style={{ width: '140px' }} placeholder="Till (valfritt)" value={q.targetSpeaker || ''} onChange={(e) => updateQuestion(q.id, { targetSpeaker: e.target.value || undefined })} />
                   {(['must_ask', 'nice_to_ask', 'if_time'] as const).map((p) => (
-                    <button key={p} type="button" onClick={() => updateQuestion(q.id, { priority: p })} className="px-2 py-0.5 rounded text-xs transition-all" style={{ background: q.priority === p ? (p === 'must_ask' ? 'var(--color-danger)' : 'var(--color-surface-overlay)') : 'var(--color-surface-raised)', color: q.priority === p ? 'white' : 'var(--color-text-muted)', border: `1px solid ${q.priority === p ? 'transparent' : 'var(--color-border)'}` }}>
-                      {p === 'must_ask' ? 'Maste stallas' : p === 'nice_to_ask' ? 'Bra att stalla' : 'Om tid finns'}
+                    <button key={p} type="button" onClick={() => updateQuestion(q.id, { priority: p })} className="px-2 py-0.5 rounded text-[11px] transition-all" style={{ background: q.priority === p ? (p === 'must_ask' ? 'var(--color-danger)' : 'rgba(255,255,255,0.06)') : 'rgba(255,255,255,0.03)', color: q.priority === p ? 'white' : 'var(--color-text-muted)', border: `1px solid ${q.priority === p ? 'transparent' : 'rgba(255,255,255,0.06)'}` }}>
+                      {p === 'must_ask' ? 'Måste ställas' : p === 'nice_to_ask' ? 'Bra att ställa' : 'Om tid finns'}
                     </button>
                   ))}
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addQuestion} className="btn-secondary text-sm w-full">+ Lagg till fraga</button>
+            <button type="button" onClick={addQuestion} className="btn-secondary text-[13px] w-full">+ Lägg till fråga</button>
           </div>
         )}
 
         {/* === SETTINGS === */}
         {activeTab === 'settings' && (
-          <div className="card space-y-4">
+          <div className="card space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Sprak</label>
+                <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Språk</label>
                 <select className="input text-sm" value={language} onChange={(e) => setLanguage(e.target.value)}>
                   <option value="sv-SE">Svenska</option>
                   <option value="en-US">Engelska</option>
@@ -263,23 +263,23 @@ export default function NewSessionPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Sammanfattningslage</label>
+                <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Sammanfattningsläge</label>
                 <select className="input text-sm" value={summaryMode} onChange={(e) => setSummaryMode(e.target.value as SummaryMode)}>
                   <option value="auto">Auto</option>
                   <option value="interval">Tidsintervall</option>
-                  <option value="topic_shift">Amnesbyte</option>
+                  <option value="topic_shift">Ämnesbyte</option>
                 </select>
               </div>
             </div>
             {(summaryMode === 'interval' || summaryMode === 'auto') && (
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Intervall (sekunder)</label>
+                <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Intervall (sekunder)</label>
                 <input type="number" className="input text-sm" min={30} max={300} value={summaryInterval} onChange={(e) => setSummaryInterval(parseInt(e.target.value))} />
               </div>
             )}
             <div className="space-y-2.5">
               {[
-                { label: 'AI-fordjupningsfragor', checked: aiInsights, onChange: setAiInsights },
+                { label: 'AI-fördjupningsfrågor', checked: aiInsights, onChange: setAiInsights },
                 { label: 'Citat-extraktion', checked: enableQuoteExtraction, onChange: setEnableQuoteExtraction },
               ].map((opt) => (
                 <label key={opt.label} className="flex items-center gap-3 cursor-pointer">
@@ -296,8 +296,8 @@ export default function NewSessionPage() {
         )}
 
         {/* Submit */}
-        <div className="mt-8 flex gap-3">
-          <button type="submit" disabled={isCreating || !title || !hostName} className="btn-primary flex-1 py-3 text-base">
+        <div className="mt-10 flex gap-3">
+          <button type="submit" disabled={isCreating || !title || !hostName} className="btn-primary flex-1 py-3 text-[15px]">
             {isCreating ? 'Skapar...' : 'Skapa session'}
           </button>
         </div>
@@ -306,10 +306,10 @@ export default function NewSessionPage() {
         <div className="mt-4 flex items-center gap-3 flex-wrap">
           {[
             { filled: !!title && !!hostName, label: 'Grundinfo' },
-            { filled: !!topic, label: 'Amne' },
+            { filled: !!topic, label: 'Ämne' },
             { filled: speakerBios.length > 0, label: 'Talare' },
             { filled: agenda.length > 0, label: 'Dagordning' },
-            { filled: preparedQuestions.length > 0, label: 'Fragor' },
+            { filled: preparedQuestions.length > 0, label: 'Frågor' },
             { filled: !!backgroundMaterial, label: 'Bakgrund' },
           ].map((item) => (
             <span key={item.label} className="text-xs px-2 py-0.5 rounded-full" style={{ background: item.filled ? 'rgba(34,197,94,0.15)' : 'var(--color-surface-raised)', color: item.filled ? 'var(--color-success)' : 'var(--color-text-muted)', border: `1px solid ${item.filled ? 'rgba(34,197,94,0.3)' : 'var(--color-border-subtle)'}` }}>

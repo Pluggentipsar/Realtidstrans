@@ -42,7 +42,7 @@ export function ExportPanel({
     }
 
     if (aiQuestions.length > 0) {
-      parts.push('## AI-genererade fragor\n');
+      parts.push('## AI-genererade frågor\n');
       for (const q of aiQuestions) {
         parts.push(`- **${q.question}**`);
         if (q.targetSpeaker) parts.push(`  _(till ${q.targetSpeaker})_`);
@@ -51,16 +51,16 @@ export function ExportPanel({
     }
 
     if (audienceQuestions.length > 0) {
-      parts.push('## Publikfragor\n');
+      parts.push('## Publikfrågor\n');
       const sorted = [...audienceQuestions].sort((a, b) => b.votes - a.votes);
       for (const q of sorted) {
-        parts.push(`- [${q.votes} roster] ${q.text}${q.authorName ? ` — ${q.authorName}` : ''}`);
+        parts.push(`- [${q.votes} röster] ${q.text}${q.authorName ? ` — ${q.authorName}` : ''}`);
       }
       parts.push('');
     }
 
     if (transcript) {
-      parts.push('## Fullstandig transkribering\n');
+      parts.push('## Fullständig transkribering\n');
       parts.push(transcript);
     }
 

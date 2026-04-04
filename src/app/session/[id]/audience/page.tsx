@@ -127,10 +127,10 @@ export default function AudiencePage() {
               key={type}
               onClick={() => sendReaction(type)}
               disabled={reactionCooldown}
-              className="text-2xl w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-75"
+              className="text-2xl w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-75"
               style={{
-                background: lastReaction === type ? 'var(--color-accent-subtle)' : 'var(--color-surface-raised)',
-                border: `1px solid ${lastReaction === type ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                background: lastReaction === type ? 'var(--color-accent-subtle)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${lastReaction === type ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)'}`,
                 opacity: reactionCooldown && lastReaction !== type ? 0.3 : 1,
                 transform: lastReaction === type ? 'scale(1.15)' : undefined,
               }}
@@ -153,7 +153,7 @@ export default function AudiencePage() {
       {/* Active poll banner */}
       {activePolls.length > 0 && view !== 'polls' && (
         <button onClick={() => setView('polls')} className="w-full mb-2 card-glow text-sm text-center py-2 flex-shrink-0" style={{ cursor: 'pointer' }}>
-          Omrostning aktiv — tryck for att rosta
+          Omröstning aktiv — tryck för att rösta
         </button>
       )}
 
@@ -161,7 +161,7 @@ export default function AudiencePage() {
       <div className="focus-selector mb-2 flex-shrink-0">
         {[
           { key: 'live' as const, label: 'Samtal' },
-          { key: 'questions' as const, label: `Fragor (${questions.length})` },
+          { key: 'questions' as const, label: `Frågor (${questions.length})` },
           { key: 'polls' as const, label: `Polls${activePolls.length > 0 ? ` (${activePolls.length})` : ''}` },
         ].map((tab) => (
           <button key={tab.key} onClick={() => setView(tab.key)} className={`focus-btn ${view === tab.key ? 'focus-btn-active' : ''}`}>
@@ -175,12 +175,12 @@ export default function AudiencePage() {
         {view === 'live' && (
           <div className="space-y-3">
             {latestSummary && (
-              <div className="animate-fade-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+              <div className="animate-fade-in" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                 <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Senaste sammanfattning</div>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 300)}{latestSummary.content.length > 300 ? '...' : ''}</p>
               </div>
             )}
-            {transcript.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Vantar pa att samtalet startar...</p>}
+            {transcript.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Väntar på att samtalet startar...</p>}
             {transcript.slice(-30).map((seg) => (
               <div key={seg.id} className="transcript-line" style={{ borderLeftColor: 'var(--color-accent)' }}>
                 <span className="speaker-name text-xs" style={{ color: 'var(--color-accent)' }}>{seg.speakerName}</span>
@@ -193,16 +193,16 @@ export default function AudiencePage() {
 
         {view === 'questions' && (
           <div className="space-y-2">
-            {questions.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga fragor annu</p>}
+            {questions.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga frågor ännu</p>}
             {[...questions].sort((a, b) => b.votes - a.votes).map((q) => (
-              <div key={q.id} className="flex items-start gap-3" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem' }}>
+              <div key={q.id} className="flex items-start gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '0.75rem' }}>
                 <button
                   onClick={() => voteQuestion(q.id)}
                   disabled={votedQuestionIds.has(q.id)}
-                  className="min-w-[48px] py-1.5 rounded-lg text-center transition-all active:scale-90"
+                  className="min-w-[44px] py-1.5 rounded-lg text-center transition-all active:scale-90"
                   style={{
-                    background: votedQuestionIds.has(q.id) ? 'var(--color-accent-subtle)' : 'var(--color-surface-raised)',
-                    border: `1px solid ${votedQuestionIds.has(q.id) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: votedQuestionIds.has(q.id) ? 'var(--color-accent-subtle)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${votedQuestionIds.has(q.id) ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)'}`,
                     color: votedQuestionIds.has(q.id) ? 'var(--color-accent)' : 'var(--color-text-primary)',
                   }}
                 >
@@ -220,15 +220,15 @@ export default function AudiencePage() {
 
         {view === 'polls' && (
           <div className="space-y-4">
-            {polls.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga omrostningar</p>}
+            {polls.length === 0 && <p className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga omröstningar</p>}
             {polls.map((poll) => {
               const total = poll.options.reduce((s: number, o: PollOption) => s + o.votes, 0);
               const hasVoted = votedPollIds.has(poll.id);
               return (
-                <div key={poll.id} style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1rem' }}>
+                <div key={poll.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '1rem' }}>
                   <div className="flex items-center gap-2 mb-3">
                     <h4 className="text-sm font-bold">{poll.question}</h4>
-                    {poll.status === 'closed' && <span className="badge-muted text-xs">Stangd</span>}
+                    {poll.status === 'closed' && <span className="badge-muted text-xs">Stängd</span>}
                   </div>
                   {poll.options.map((opt: PollOption) => {
                     const pct = total > 0 ? (opt.votes / total) * 100 : 0;
@@ -237,10 +237,10 @@ export default function AudiencePage() {
                         key={opt.id}
                         onClick={() => votePoll(poll.id, opt.id)}
                         disabled={hasVoted || poll.status === 'closed'}
-                        className="w-full mb-2 p-3 rounded-lg text-left transition-all active:scale-[0.98]"
+                        className="w-full mb-2 p-3 rounded-xl text-left transition-all active:scale-[0.98]"
                         style={{
-                          background: 'var(--color-surface-raised)',
-                          border: `1px solid ${hasVoted || poll.status === 'closed' ? 'var(--color-border-subtle)' : 'var(--color-border)'}`,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${hasVoted || poll.status === 'closed' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.08)'}`,
                         }}
                       >
                         <div className="flex justify-between text-sm mb-1.5">
@@ -255,7 +255,7 @@ export default function AudiencePage() {
                       </button>
                     );
                   })}
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{total} roster</p>
+                  <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{total} röster</p>
                 </div>
               );
             })}
@@ -265,7 +265,7 @@ export default function AudiencePage() {
 
       {/* Question input — always at bottom */}
       {session.status === 'live' && (
-        <div className="card flex-shrink-0" style={{ padding: '0.75rem' }}>
+        <div className="card flex-shrink-0" style={{ padding: '0.75rem', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)' }}>
           <div className="flex gap-2 mb-1.5">
             <input
               type="text"
@@ -283,7 +283,7 @@ export default function AudiencePage() {
             <input
               type="text"
               className="input text-sm"
-              placeholder="Stall en fraga..."
+              placeholder="Ställ en fråga..."
               value={newQuestion}
               onChange={(e) => setNewQuestion(e.target.value.slice(0, 500))}
               onKeyDown={(e) => e.key === 'Enter' && submitQuestion()}
@@ -298,20 +298,20 @@ export default function AudiencePage() {
 
       {/* Session ended — show summary + link to dashboard */}
       {session.status === 'ended' && (
-        <div className="card flex-shrink-0 text-center" style={{ padding: '1rem' }}>
-          <div className="text-2xl mb-2">&#x2705;</div>
-          <p className="font-medium mb-1">Sessionen ar avslutad</p>
-          <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-            Tack for ditt deltagande!
+        <div className="card flex-shrink-0 text-center" style={{ padding: '1.25rem', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)' }}>
+          <div className="text-2xl mb-3">&#x2705;</div>
+          <p className="font-medium mb-1.5">Sessionen är avslutad</p>
+          <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+            Tack för ditt deltagande!
           </p>
           {latestSummary && (
-            <div className="text-left mb-3 p-3 rounded-lg" style={{ background: 'var(--color-surface-raised)' }}>
+            <div className="text-left mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Sammanfattning</div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 400)}{latestSummary.content.length > 400 ? '...' : ''}</p>
             </div>
           )}
           <a href={`/session/${sessionId}/dashboard`} className="btn-primary text-sm w-full inline-block">
-            Se fullstandigt resultat
+            Se fullständigt resultat
           </a>
         </div>
       )}

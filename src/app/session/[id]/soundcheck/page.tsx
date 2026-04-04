@@ -133,32 +133,32 @@ export default function SoundcheckPage() {
   const minRecordingTime = 10; // Minimum seconds for useful voice enrollment
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-10">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold mb-2">Ljudprov</h1>
-        <p style={{ color: 'var(--color-text-secondary)' }}>
-          Varje talare pratar i ~30 sekunder sa systemet kan identifiera vem som sager vad.
+    <div className="max-w-xl mx-auto px-4 py-14">
+      <div className="text-center mb-10">
+        <h1 className="text-2xl font-semibold tracking-tight mb-3" style={{ letterSpacing: '-0.02em' }}>Ljudprov</h1>
+        <p className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+          Varje talare pratar i ~30 sekunder så systemet kan identifiera vem som säger vad.
         </p>
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center justify-center gap-2 mb-8">
+      <div className="flex items-center justify-center gap-2 mb-10">
         {['Setup', 'Moderator', 'Ljudprov', 'Live'].map((step, i) => (
           <div key={step} className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: i <= 2 ? 'var(--color-accent)' : 'var(--color-surface-raised)', color: i <= 2 ? 'white' : 'var(--color-text-muted)' }}>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium" style={{ background: i <= 2 ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)', color: i <= 2 ? 'white' : 'var(--color-text-muted)' }}>
               {i + 1}
             </div>
-            <span className="text-xs" style={{ color: i <= 2 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{step}</span>
-            {i < 3 && <div className="w-6 h-px" style={{ background: 'var(--color-border)' }} />}
+            <span className="text-[12px]" style={{ color: i <= 2 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{step}</span>
+            {i < 3 && <div className="w-6 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />}
           </div>
         ))}
       </div>
 
       {/* Speaker list */}
       {speakers.length === 0 && (
-        <div className="card text-center py-10">
+        <div className="card text-center py-12">
           <p style={{ color: 'var(--color-text-muted)' }}>Inga talare inlagda i briefingen.</p>
-          <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>Du kan lagga till talare i session setup.</p>
+          <p className="text-[13px] mt-2" style={{ color: 'var(--color-text-muted)' }}>Du kan lägga till talare i session setup.</p>
         </div>
       )}
 
@@ -168,17 +168,20 @@ export default function SoundcheckPage() {
             key={idx}
             className="card"
             style={{
-              borderColor: speaker.status === 'recording' ? 'var(--color-danger)' : speaker.status === 'done' ? 'var(--color-success)' : 'var(--color-border-subtle)',
+              background: 'var(--glass-bg)',
+              border: `1px solid ${speaker.status === 'recording' ? 'var(--color-danger)' : speaker.status === 'done' ? 'var(--color-success)' : 'var(--glass-border)'}`,
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
               padding: '1rem 1.25rem',
             }}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full" style={{ background: SPEAKER_COLORS[idx % SPEAKER_COLORS.length] }} />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: SPEAKER_COLORS[idx % SPEAKER_COLORS.length] }} />
                 <div>
-                  <span className="font-medium">{speaker.bio.name}</span>
+                  <span className="text-[14px] font-medium">{speaker.bio.name}</span>
                   {speaker.bio.title && (
-                    <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>{speaker.bio.title}</span>
+                    <span className="text-[12px] ml-2" style={{ color: 'var(--color-text-muted)' }}>{speaker.bio.title}</span>
                   )}
                 </div>
               </div>
@@ -197,23 +200,23 @@ export default function SoundcheckPage() {
                   <>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ background: 'var(--color-danger)', animation: 'pulse-live 1s ease-in-out infinite' }} />
-                      <span className="font-mono text-sm">{speaker.recordingSeconds}s</span>
+                      <span className="font-mono text-[13px]">{speaker.recordingSeconds}s</span>
                     </div>
                     <button
                       onClick={() => stopRecording(idx)}
                       disabled={speaker.recordingSeconds < minRecordingTime}
                       className="btn-danger text-xs py-1.5 px-3"
                     >
-                      {speaker.recordingSeconds < minRecordingTime ? `Vanta ${minRecordingTime - speaker.recordingSeconds}s...` : 'Klart'}
+                      {speaker.recordingSeconds < minRecordingTime ? `Vänta ${minRecordingTime - speaker.recordingSeconds}s...` : 'Klart'}
                     </button>
                   </>
                 )}
                 {speaker.status === 'done' && (
-                  <span className="text-xs font-medium" style={{ color: 'var(--color-success)' }}>&#x2713; Klar ({speaker.recordingSeconds}s)</span>
+                  <span className="text-[12px] font-medium" style={{ color: 'var(--color-success)' }}>&#x2713; Klar ({speaker.recordingSeconds}s)</span>
                 )}
                 {speaker.status === 'error' && (
                   <button onClick={() => startRecording(idx)} className="btn-secondary text-xs py-1.5 px-3">
-                    Forsok igen
+                    Försök igen
                   </button>
                 )}
               </div>
@@ -229,25 +232,25 @@ export default function SoundcheckPage() {
         </button>
         <button
           onClick={() => {
-            if (confirm('Hoppa over ljudprov? Talaridentifiering fungerar fortfarande men kan vara mindre precis.')) {
+            if (confirm('Hoppa över ljudprov? Talaridentifiering fungerar fortfarande men kan vara mindre precis.')) {
               skipSoundcheck();
             }
           }}
           className="btn-ghost w-full py-2 text-sm"
         >
-          Hoppa over ljudprov
+          Hoppa över ljudprov
         </button>
         {speakers.some((s) => s.status === 'done') && !allDone && (
           <button
             onClick={() => {
-              if (confirm(`${speakers.filter((s) => s.status !== 'done').length} talare har inte gjort ljudprov. Fortsatt anda?`)) {
+              if (confirm(`${speakers.filter((s) => s.status !== 'done').length} talare har inte gjort ljudprov. Fortsätt ändå?`)) {
                 proceedToLive();
               }
             }}
             className="btn-ghost w-full py-2 text-sm"
             style={{ color: 'var(--color-warning)' }}
           >
-            Fortsatt med {speakers.filter((s) => s.status === 'done').length} av {speakers.length} klara
+            Fortsätt med {speakers.filter((s) => s.status === 'done').length} av {speakers.length} klara
           </button>
         )}
       </div>

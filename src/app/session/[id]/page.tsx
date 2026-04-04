@@ -33,7 +33,7 @@ import { formatTimestamp } from '@/lib/utils';
 const FOCUS_MODES = [
   { key: 'transcript' as const, label: 'Transkript', icon: '\uD83C\uDFA4' },
   { key: 'summary' as const, label: 'Sammanfattning', icon: '\uD83D\uDCDD' },
-  { key: 'questions' as const, label: 'AI-fragor', icon: '\uD83E\uDDE0' },
+  { key: 'questions' as const, label: 'AI-frågor', icon: '\uD83E\uDDE0' },
   { key: 'quotes' as const, label: 'Citat', icon: '\u2728' },
   { key: 'audience' as const, label: 'Publik', icon: '\uD83D\uDC65' },
 ];
@@ -107,7 +107,7 @@ export default function LiveSessionPage() {
     socket.on('ai:questions', (q) => {
       setAiQuestions((p) => [...p, ...q]);
       setAiStates((p) => p.filter((st) => st !== 'generating_questions'));
-      addNotification('questions', `${q.length} nya fordjupningsfragor`);
+      addNotification('questions', `${q.length} nya fördjupningsfrågor`);
     });
     socket.on('ai:quotes', (q) => {
       setQuotes((p) => [...p, ...q]);
@@ -116,7 +116,7 @@ export default function LiveSessionPage() {
     });
     socket.on('ai:topic_shift', (d) => {
       setTopicShifts((p) => [...p, d]);
-      addNotification('topic_shift', `Amnesbyte: ${d.topic}`);
+      addNotification('topic_shift', `Ämnesbyte: ${d.topic}`);
     });
     socket.on('audience:question_added', (q) => setAudienceQuestions((p) => [...p, q]));
     socket.on('audience:question_voted', ({ questionId, votes }) => {
@@ -135,8 +135,7 @@ export default function LiveSessionPage() {
     });
 
     // Listen for moderator projector commands
-    socket.on('projector:set_view', ({ view }) => {
-      // Map moderator view names to our focus modes
+    socket.on('projector:set_view', ({ view, secondary }) => {
       const modeMap: Record<string, string> = {
         transcript: 'transcript', summary: 'summary', questions: 'questions',
         quotes: 'quotes', audience: 'audience',
@@ -144,6 +143,7 @@ export default function LiveSessionPage() {
       if (modeMap[view]) {
         setRemoteFocusMode(modeMap[view]);
       }
+      setRemoteSecondaryMode(secondary && modeMap[secondary] ? modeMap[secondary] : null);
     });
 
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
@@ -166,6 +166,7 @@ export default function LiveSessionPage() {
 
   const [audioError, setAudioError] = useState<string | null>(null);
   const [remoteFocusMode, setRemoteFocusMode] = useState<string | null>(null);
+  const [remoteSecondaryMode, setRemoteSecondaryMode] = useState<string | null | undefined>(undefined);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -178,8 +179,8 @@ export default function LiveSessionPage() {
       setIsLive(true);
     } catch (err) {
       const msg = err instanceof DOMException && err.name === 'NotAllowedError'
-        ? 'Mikrofonbehorighet nekad. Tiliat mikrofon i webblasaren och forsok igen.'
-        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon ar ansluten.';
+        ? 'Mikrofonbehörighet nekad. Tillåt mikrofon i webbläsaren och försök igen.'
+        : 'Kunde inte starta mikrofon. Kontrollera att en mikrofon är ansluten.';
       setAudioError(msg);
       console.error('Audio capture failed:', err);
     }
@@ -231,14 +232,16 @@ export default function LiveSessionPage() {
         return (
           <div className="space-y-1">
             {transcript.length === 0 && (
-              <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>
-                {isLive ? 'Vantar pa tal...' : 'Starta sessionen for att borja transkribera'}
+              <p className="text-center py-20" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+                {isLive ? 'Väntar på tal...' : 'Starta sessionen för att börja transkribera'}
               </p>
             )}
             {transcript.map((seg, idx) => (
               <div key={seg.id} className={`transcript-line ${!seg.isFinal ? 'opacity-40' : ''} ${idx === transcript.length - 1 && seg.isFinal ? 'transcript-line-new' : ''}`} style={seg.isFinal ? { borderLeftColor: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' } : {}}>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="speaker-name" style={{ color: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' }}>{seg.speakerName}</span>
+                  {(() => { const speakerColor = session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)'; return (
+                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: speakerColor }} /><span className="speaker-name" style={{ color: speakerColor }}>{seg.speakerName}</span></div>
+                  ); })()}
                   <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{formatTimestamp(seg.timestamp)}</span>
                 </div>
                 <p className="leading-relaxed">{seg.text}</p>
@@ -252,7 +255,7 @@ export default function LiveSessionPage() {
         return (
           <div className="space-y-6">
             {topicShifts.length > 0 && (
-              <div className="badge-accent px-3 py-1.5 text-sm">Senaste amne: {topicShifts[topicShifts.length - 1].topic}</div>
+              <div className="badge-accent px-3 py-1.5 text-sm" style={{ boxShadow: '0 0 12px rgba(217,119,6,0.08)' }}>Senaste ämne: {topicShifts[topicShifts.length - 1].topic}</div>
             )}
             {summaries.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>Sammanfattningar genereras automatiskt</p>}
             {summaries.map((s) => (
@@ -261,7 +264,7 @@ export default function LiveSessionPage() {
                   <span>{formatTimestamp(s.coveringFrom)} - {formatTimestamp(s.coveringTo)}</span>
                   {s.topicLabel && <span className="badge-accent">{s.topicLabel}</span>}
                 </div>
-                <div className="leading-relaxed whitespace-pre-wrap">{s.content}</div>
+                <div className="leading-relaxed whitespace-pre-wrap" style={{ fontFamily: 'var(--font-body)' }}>{s.content}</div>
               </div>
             ))}
             {gapAnalysis && (
@@ -276,7 +279,7 @@ export default function LiveSessionPage() {
       case 'questions':
         return (
           <div className="space-y-5">
-            {aiQuestions.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>AI-fragor visas har under sessionen</p>}
+            {aiQuestions.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>AI-frågor visas här under sessionen</p>}
             {aiQuestions.map((q) => (
               <div key={q.id} className="animate-slide-up" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.25rem' }}>
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -286,7 +289,12 @@ export default function LiveSessionPage() {
                       &#x1F3AF; {q.targetSpeaker}
                     </span>
                   )}
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{q.relevanceScore}/10</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-12 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${q.relevanceScore * 10}%`, background: 'linear-gradient(90deg, var(--color-accent), var(--color-accent-hover))' }} />
+                    </div>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{q.relevanceScore}</span>
+                  </div>
                 </div>
                 <p className="font-medium text-lg leading-relaxed">{q.question}</p>
                 <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{q.context}</p>
@@ -300,8 +308,8 @@ export default function LiveSessionPage() {
           <div className="space-y-6">
             {quotes.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>Starka citat extraheras automatiskt</p>}
             {quotes.sort((a, b) => b.impactScore - a.impactScore).map((q) => (
-              <div key={q.id} className="quote-block animate-slide-up">
-                <blockquote className="text-xl italic leading-relaxed">&ldquo;{q.quote}&rdquo;</blockquote>
+              <div key={q.id} className="quote-block quote-glow animate-slide-up">
+                <blockquote className="text-2xl italic leading-relaxed">&ldquo;{q.quote}&rdquo;</blockquote>
                 <div className="flex items-center gap-3 mt-3">
                   <span className="font-bold" style={{ color: 'var(--color-accent)' }}>— {q.speakerName}</span>
                   <span className="badge-muted">{QUOTE_CATEGORY_LABELS[q.category]}</span>
@@ -321,7 +329,7 @@ export default function LiveSessionPage() {
               <div key={poll.id} className="card-glow mb-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-bold">{poll.question}</h4>
-                  <button onClick={() => closePoll(poll.id)} className="btn-ghost text-xs">Stang</button>
+                  <button onClick={() => closePoll(poll.id)} className="btn-ghost text-xs text-[11px]">Stäng</button>
                 </div>
                 {poll.options.map((opt: PollOption) => {
                   const total = poll.options.reduce((s: number, o: PollOption) => s + o.votes, 0);
@@ -340,10 +348,10 @@ export default function LiveSessionPage() {
             ))}
 
             {/* Poll creation */}
-            <button onClick={() => setShowPollForm(!showPollForm)} className="btn-secondary text-sm py-2">{showPollForm ? 'Avbryt' : 'Skapa omrostning'}</button>
+            <button onClick={() => setShowPollForm(!showPollForm)} className="btn-secondary text-sm py-2">{showPollForm ? 'Avbryt' : 'Skapa omröstning'}</button>
             {showPollForm && (
               <div className="card space-y-3">
-                <input className="input" placeholder="Fraga..." value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
+                <input className="input" placeholder="Fråga..." value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
                 {pollOptions.map((o, i) => (
                   <div key={i} className="flex gap-2">
                     <input className="input" placeholder={`Alternativ ${i+1}`} value={o} onChange={(e) => { const n=[...pollOptions]; n[i]=e.target.value; setPollOptions(n); }} />
@@ -360,8 +368,8 @@ export default function LiveSessionPage() {
             {[...audienceQuestions].sort((a, b) => b.votes - a.votes).map((q) => (
               <div key={q.id} className="flex items-start gap-4" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.75rem' }}>
                 <div className="text-center min-w-[48px]">
-                  <div className="text-xl font-bold" style={{ color: 'var(--color-accent)' }}>{q.votes}</div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>roster</div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>{q.votes}</div>
+                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>röster</div>
                 </div>
                 <div>
                   <p className="leading-relaxed">{q.text}</p>
@@ -378,7 +386,7 @@ export default function LiveSessionPage() {
                   <div key={c.id} className="card mb-2">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium">{c.theme}</span>
-                      <span className="badge-muted text-xs">{c.questionIds.length} fragor</span>
+                      <span className="badge-muted text-xs">{c.questionIds.length} frågor</span>
                     </div>
                     <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{c.summary}</p>
                   </div>
@@ -482,7 +490,7 @@ export default function LiveSessionPage() {
       {audioError && (
         <div className="card" style={{ borderColor: 'var(--color-danger)', background: 'rgba(239,68,68,0.08)' }}>
           <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{audioError}</p>
-          <button onClick={() => setAudioError(null)} className="btn-ghost text-xs mt-2">Stang</button>
+          <button onClick={() => setAudioError(null)} className="btn-ghost text-xs mt-2">Stäng</button>
         </div>
       )}
 
@@ -506,6 +514,7 @@ export default function LiveSessionPage() {
         <button onClick={analyzeGaps} disabled={isAnalyzing} className="btn-secondary w-full text-sm">
           {isAnalyzing ? 'Analyserar...' : 'Vad har vi missat?'}
         </button>
+        <a href={`/session/${sessionId}/moderator`} className="btn-ghost w-full text-sm text-center block">Moderatorvy</a>
         <a href={`/session/${sessionId}/dashboard`} className="btn-ghost w-full text-sm text-center block">Dashboard</a>
       </div>
 
@@ -516,13 +525,13 @@ export default function LiveSessionPage() {
             ['Kod', session.code],
             ['Talare', String(session.speakers.length)],
             ['Sammanfattningar', String(summaries.length)],
-            ['AI-fragor', String(aiQuestions.length)],
+            ['AI-frågor', String(aiQuestions.length)],
             ['Citat', String(quotes.length)],
-            ['Publikfragor', String(audienceQuestions.length)],
+            ['Publikfrågor', String(audienceQuestions.length)],
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between">
               <span style={{ color: 'var(--color-text-muted)' }}>{label}</span>
-              <span className={label === 'Kod' ? 'font-mono font-bold' : ''} style={label === 'Kod' ? { color: 'var(--color-accent)' } : {}}>{value}</span>
+              <span className={label === 'Kod' ? 'font-mono font-bold' : ''} style={label === 'Kod' ? { color: 'var(--color-accent)', textShadow: '0 0 12px rgba(217,119,6,0.3)' } : {}}>{value}</span>
             </div>
           ))}
         </div>
@@ -533,12 +542,14 @@ export default function LiveSessionPage() {
   return (
     <TextSizeProvider>
       <PresentationView
+        sessionId={sessionId}
         sessionTitle={session.title}
         sessionCode={session.code}
         isLive={isLive}
         focusModes={FOCUS_MODES}
         sidebarContent={sidebar}
         externalFocusMode={remoteFocusMode}
+        externalSecondaryMode={remoteSecondaryMode}
       >
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>

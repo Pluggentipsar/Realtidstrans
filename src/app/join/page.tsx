@@ -27,26 +27,26 @@ export default function JoinPage() {
       const { sessionId } = await response.json();
       router.push(`/session/${sessionId}/audience`);
     } catch {
-      setError('Natverksfel. Forsok igen.');
+      setError('Nätverksfel. Försök igen.');
     } finally {
       setIsJoining(false);
     }
   };
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-20 text-center">
-      <div className="mb-10">
-        <div className="text-5xl mb-4">&#x1F4F1;</div>
-        <h1 className="text-2xl font-bold mb-2">Ga med i session</h1>
-        <p style={{ color: 'var(--color-text-secondary)' }}>
-          Ange den 6-siffriga koden fran presentatoren
+    <div className="max-w-sm mx-auto px-4 pt-28 pb-16 text-center">
+      <div className="mb-12">
+        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center text-3xl" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>&#x1F4F1;</div>
+        <h1 className="text-2xl font-semibold tracking-tight mb-3" style={{ letterSpacing: '-0.02em' }}>Gå med i session</h1>
+        <p className="text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
+          Ange den 6-siffriga koden från presentatören
         </p>
       </div>
 
-      <form onSubmit={handleJoin} className="space-y-4">
+      <form onSubmit={handleJoin} className="space-y-6">
         <input
           type="text"
-          className="input text-center font-mono tracking-[0.4em] py-5"
+          className="input text-center font-mono tracking-[0.4em] py-6"
           style={{ fontSize: '2rem', letterSpacing: '0.4em', background: 'var(--color-surface)', borderColor: code.length === 6 ? 'var(--color-accent)' : 'var(--color-border)' }}
           placeholder="000000"
           value={code}
@@ -60,13 +60,13 @@ export default function JoinPage() {
         />
 
         {/* Visual dots showing progress */}
-        <div className="flex justify-center gap-2">
+        <div className="flex justify-center gap-2.5">
           {[0,1,2,3,4,5].map((i) => (
             <div
               key={i}
-              className="w-2.5 h-2.5 rounded-full transition-all duration-200"
+              className="w-2 h-2 rounded-full transition-all duration-200"
               style={{
-                background: i < code.length ? 'var(--color-accent)' : 'var(--color-border)',
+                background: i < code.length ? 'var(--color-accent)' : 'rgba(255,255,255,0.08)',
                 transform: i < code.length ? 'scale(1.2)' : 'scale(1)',
               }}
             />
@@ -74,13 +74,13 @@ export default function JoinPage() {
         </div>
 
         {error && (
-          <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>
+          <p className="text-[13px]" style={{ color: 'var(--color-danger)' }}>{error}</p>
         )}
 
         <button
           type="submit"
           disabled={code.length !== 6 || isJoining}
-          className="btn-primary w-full py-3.5 text-base"
+          className="btn-primary w-full py-3.5 text-[15px]"
         >
           {isJoining ? 'Ansluter...' : 'Anslut'}
         </button>

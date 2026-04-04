@@ -80,7 +80,7 @@ export function QuestionFocusSelector({
               style={{ borderTop: '1px solid var(--color-border-subtle)' }}
             >
               <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Antal fragor per cykel
+                Antal frågor per cykel
               </span>
               <div className="flex items-center gap-1">
                 {[2, 3, 4, 5].map((n) => (
@@ -108,7 +108,7 @@ export function QuestionFocusSelector({
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-        Fragetyp
+        Frågetyp
       </label>
       <div className="grid grid-cols-2 gap-2">
         {QUESTION_FOCUS_OPTIONS.map((option) => (
@@ -134,7 +134,7 @@ export function QuestionFocusSelector({
 
       <div className="flex items-center gap-3">
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Antal fragor:
+          Antal frågor:
         </span>
         {[2, 3, 4, 5].map((n) => (
           <button

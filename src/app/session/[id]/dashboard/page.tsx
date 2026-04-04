@@ -67,7 +67,7 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">{session.title}</h1>
+        <h1 className="text-2xl font-bold mb-1" style={{ letterSpacing: '-0.02em' }}>{session.title}</h1>
         <p style={{ color: 'var(--color-text-secondary)' }}>
           {session.hostName} &middot; {session.createdAt && new Date(session.createdAt).toLocaleDateString('sv-SE')}
           {session.status === 'ended' && <span className="badge-muted ml-2">Avslutad</span>}
@@ -79,14 +79,14 @@ export default function DashboardPage() {
         {[
           { v: session.speakers.length, l: 'Talare', c: 'var(--color-accent)' },
           { v: intervalSummaries.length, l: 'Sammanfattningar', c: 'var(--color-success)' },
-          { v: aiQuestions.length, l: 'AI-fragor', c: '#a78bfa' },
+          { v: aiQuestions.length, l: 'AI-frågor', c: '#a78bfa' },
           { v: quotes.length, l: 'Citat', c: '#f472b6' },
-          { v: audienceQuestions.length, l: 'Publikfragor', c: 'var(--color-warning)' },
+          { v: audienceQuestions.length, l: 'Publikfrågor', c: 'var(--color-warning)' },
           { v: engagement?.averageTemperature.toFixed(0) || '0', l: 'Snitttemp', c: 'var(--color-danger)' },
         ].map((s, i) => (
-          <div key={i} className="card text-center py-3">
-            <div className="text-2xl font-bold" style={{ color: s.c }}>{s.v}</div>
-            <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{s.l}</div>
+          <div key={i} className="text-center py-3 rounded-xl" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)' }}>
+            <div className="text-3xl font-bold tracking-tight" style={{ color: s.c }}>{s.v}</div>
+            <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{s.l}</div>
           </div>
         ))}
       </div>
@@ -94,8 +94,8 @@ export default function DashboardPage() {
       {/* Tabs */}
       <div className="tab-bar mb-6">
         {[
-          { key: 'overview' as const, label: 'Oversikt' },
-          { key: 'content' as const, label: 'Innehall & Citat' },
+          { key: 'overview' as const, label: 'Översikt' },
+          { key: 'content' as const, label: 'Innehåll & Citat' },
           { key: 'audience' as const, label: 'Publiken' },
           { key: 'engagement' as const, label: 'Engagemang' },
         ].map((t) => (
@@ -108,8 +108,8 @@ export default function DashboardPage() {
       {/* Overview */}
       {activeView === 'overview' && (
         <div className="space-y-5">
-          <div className="card">
-            <h3 className="font-medium mb-4">Generera analys</h3>
+          <div className="rounded-xl p-5" style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)' }}>
+            <h3 className="text-sm font-semibold tracking-tight mb-4">Generera analys</h3>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => genSummary('chronological')} disabled={isGenerating} className="btn-primary text-sm">Kronologisk</button>
               <button onClick={() => genSummary('thematic')} disabled={isGenerating} className="btn-secondary text-sm">Tematisk</button>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
           {finalSummaries.map((s) => (
             <div key={s.id} className="card">
-              <h3 className="font-medium mb-3">{s.type === 'final_chronological' ? 'Kronologisk' : 'Tematisk'} sammanfattning</h3>
+              <h3 className="text-sm font-semibold tracking-tight mb-3">{s.type === 'final_chronological' ? 'Kronologisk' : 'Tematisk'} sammanfattning</h3>
               <div className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{s.content}</div>
             </div>
           ))}
@@ -135,10 +135,10 @@ export default function DashboardPage() {
 
           {session.speakers.length > 0 && (
             <div className="card">
-              <h3 className="font-medium mb-3">Talare</h3>
+              <h3 className="text-sm font-semibold tracking-tight mb-3">Talare</h3>
               <div className="flex flex-wrap gap-2">
                 {session.speakers.map((sp) => (
-                  <div key={sp.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}>
+                  <div key={sp.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sp.color }} />
                     <span className="text-sm">{sp.name}</span>
                   </div>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
       {activeView === 'content' && (
         <div className="grid md:grid-cols-2 gap-5">
           <div>
-            <h3 className="font-medium mb-3">Sammanfattningar</h3>
+            <h3 className="text-sm font-semibold tracking-tight mb-3">Sammanfattningar</h3>
             <div className="space-y-3">
               {intervalSummaries.map((s) => (
                 <div key={s.id} className="card">
@@ -175,7 +175,7 @@ export default function DashboardPage() {
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{s.content}</p>
                 </div>
               ))}
-              <h3 className="font-medium mb-3 mt-6">AI-fragor</h3>
+              <h3 className="text-sm font-semibold tracking-tight mb-3 mt-6">AI-frågor</h3>
               {aiQuestions.map((q) => (
                 <div key={q.id} className="card">
                   <span className="badge-accent text-xs mb-2">{QUESTION_CATEGORY_LABELS[q.category]}</span>
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div>
-            <h3 className="font-medium mb-3">Quotable Moments ({quotes.length})</h3>
+            <h3 className="text-sm font-semibold tracking-tight mb-3">Quotable Moments ({quotes.length})</h3>
             <div className="space-y-3">
               {quotes.sort((a,b) => b.impactScore - a.impactScore).map((q) => (
                 <div key={q.id} className="quote-block">
@@ -207,7 +207,7 @@ export default function DashboardPage() {
       {activeView === 'audience' && (
         <div className="grid md:grid-cols-2 gap-5">
           <div>
-            <h3 className="font-medium mb-3">Publikfragor ({audienceQuestions.length})</h3>
+            <h3 className="text-sm font-semibold tracking-tight mb-3">Publikfrågor ({audienceQuestions.length})</h3>
             <div className="space-y-2">
               {[...audienceQuestions].sort((a,b) => b.votes - a.votes).map((q) => (
                 <div key={q.id} className="card flex items-start gap-3 py-3">
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div>
-            <h3 className="font-medium mb-3">Frageteman</h3>
+            <h3 className="text-sm font-semibold tracking-tight mb-3">Frageteman</h3>
             {clusters.length === 0 && <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Inga kluster</p>}
             {clusters.map((c) => (
               <div key={c.id} className="card mb-2">
@@ -238,18 +238,18 @@ export default function DashboardPage() {
         <div className="space-y-5">
           {engagement && (
             <div className="card">
-              <h3 className="font-medium mb-4">Engagemang</h3>
+              <h3 className="text-sm font-semibold tracking-tight mb-4">Engagemang</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="text-center"><div className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>{engagement.averageTemperature.toFixed(0)}</div><div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Snitttemp</div></div>
-                <div className="text-center"><div className="text-2xl font-bold" style={{ color: 'var(--color-success)' }}>{engagement.peakMoments.length}</div><div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Peak-moment</div></div>
-                <div className="text-center"><div className="text-2xl font-bold" style={{ color: '#a78bfa' }}>{Object.values(engagement.totalReactions).reduce((a,b) => a+b, 0)}</div><div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Reaktioner</div></div>
-                <div className="text-center"><div className="text-2xl font-bold" style={{ color: 'var(--color-warning)' }}>{engagement.snapshots.length}</div><div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Datapunkter</div></div>
+                <div className="text-center"><div className="text-3xl font-bold tracking-tight" style={{ color: 'var(--color-accent)' }}>{engagement.averageTemperature.toFixed(0)}</div><div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Snitttemp</div></div>
+                <div className="text-center"><div className="text-3xl font-bold tracking-tight" style={{ color: 'var(--color-success)' }}>{engagement.peakMoments.length}</div><div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Peak-moment</div></div>
+                <div className="text-center"><div className="text-3xl font-bold tracking-tight" style={{ color: '#a78bfa' }}>{Object.values(engagement.totalReactions).reduce((a,b) => a+b, 0)}</div><div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Reaktioner</div></div>
+                <div className="text-center"><div className="text-3xl font-bold tracking-tight" style={{ color: 'var(--color-warning)' }}>{engagement.snapshots.length}</div><div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Datapunkter</div></div>
               </div>
 
               {/* Reactions */}
               <div className="flex flex-wrap gap-2 mb-6">
                 {(Object.entries(engagement.totalReactions) as Array<[ReactionType, number]>).sort((a,b)=>b[1]-a[1]).map(([type,count]) => (
-                  <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}>
+                  <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <span className="text-xl">{REACTION_EMOJIS[type]}</span><span className="font-bold">{count}</span>
                   </div>
                 ))}
@@ -258,8 +258,8 @@ export default function DashboardPage() {
               {/* Temperature timeline */}
               {engagement.snapshots.length > 0 && (
                 <>
-                  <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-secondary)' }}>Temperaturforlopp</h4>
-                  <div className="flex items-end gap-px h-16 mb-2 rounded-lg overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
+                  <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-secondary)' }}>Temperaturförlopp</h4>
+                  <div className="flex items-end gap-px h-16 mb-2 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)' }}>
                     {engagement.snapshots.slice(-80).map((s, i) => (
                       <div key={i} className={`flex-1 rounded-t transition-all ${s.temperature > 70 ? 'bg-red-500' : s.temperature > 40 ? 'bg-yellow-500' : 'bg-indigo-500'}`} style={{ height: `${s.temperature}%`, opacity: 0.6 + (s.temperature/100) * 0.4 }} />
                     ))}
@@ -271,7 +271,7 @@ export default function DashboardPage() {
 
           {/* Speaker analytics */}
           <div className="card">
-            <h3 className="font-medium mb-4">Talaranalys</h3>
+            <h3 className="text-sm font-semibold tracking-tight mb-4">Talaranalys</h3>
             {speakerAnalytics.length === 0 && <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Ingen data</p>}
             <div className="space-y-5">
               {speakerAnalytics.map((sp) => (

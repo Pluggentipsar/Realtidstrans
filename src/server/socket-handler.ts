@@ -267,8 +267,8 @@ export function setupSocketHandlers(io: TypedServer): void {
       io.to(sessionId).emit('moderator:question_dismissed', { questionId, source });
     });
 
-    socket.on('moderator:set_projector_view', ({ sessionId, view, content }) => {
-      io.to(sessionId).emit('projector:set_view', { view, content });
+    socket.on('moderator:set_projector_view', ({ sessionId, view, secondary, content }) => {
+      io.to(sessionId).emit('projector:set_view', { view, secondary, content });
     });
 
     // ===== Disconnect =====

@@ -75,10 +75,10 @@ export function TextSizeControls() {
       <button onClick={decrease} className="text-size-btn" title="Minska text (Ctrl+-)">
         -
       </button>
-      <button onClick={reset} className="text-size-label cursor-pointer" title="Aterstall (Ctrl+0)">
+      <button onClick={reset} className="text-size-label cursor-pointer" title="Återställ (Ctrl+0)">
         {Math.round(scale * 100)}%
       </button>
-      <button onClick={increase} className="text-size-btn" title="Forstora text (Ctrl++)">
+      <button onClick={increase} className="text-size-btn" title="Förstora text (Ctrl++)">
         +
       </button>
     </div>
