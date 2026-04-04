@@ -84,10 +84,12 @@ export function setupSocketHandlers(io: TypedServer): void {
         }
       }
 
+      // Set session live immediately so all clients know — even if transcription takes a moment
+      sessionStore.updateSessionStatus(sessionId, 'live');
+      io.to(sessionId).emit('session:status_changed', 'live');
+
       transcriptionSession.start().then(() => {
         transcriptionSessions.set(sessionId, transcriptionSession);
-        sessionStore.updateSessionStatus(sessionId, 'live');
-        io.to(sessionId).emit('session:status_changed', 'live');
 
         // Start AI processor with configured mode
         const aiProcessor = new AIProcessor(sessionId, {
@@ -113,8 +115,9 @@ export function setupSocketHandlers(io: TypedServer): void {
         engagementTrackers.set(sessionId, engagementTracker);
       }).catch((error) => {
         console.error('Failed to start transcription:', error);
+        // Session stays live — moderator can still use it, just without auto-transcription
         socket.emit('error', {
-          message: 'Kunde inte starta transkribering',
+          message: 'Transkribering kunde inte startas (kontrollera API-nycklar). Sessionen är aktiv men utan automatisk transkribering.',
           code: 'START_FAILED',
         });
       });

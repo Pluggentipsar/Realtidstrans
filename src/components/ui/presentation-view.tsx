@@ -15,6 +15,7 @@ interface PresentationViewProps {
   sidebarContent?: ReactNode;
   externalFocusMode?: string | null;
   externalSecondaryMode?: string | null;
+  externalViewVersion?: number;
 }
 
 export function PresentationView({
@@ -27,6 +28,7 @@ export function PresentationView({
   sidebarContent,
   externalFocusMode,
   externalSecondaryMode,
+  externalViewVersion,
 }: PresentationViewProps) {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [showKeyHints, setShowKeyHints] = useState(false);
@@ -37,22 +39,19 @@ export function PresentationView({
 
   const isSplit = secondaryMode !== null;
 
-  // React to moderator remote control — primary
+  // React to moderator remote control — version counter ensures every command triggers
   useEffect(() => {
+    if (externalViewVersion === undefined) return;
     if (externalFocusMode && focusModes.some((m) => m.key === externalFocusMode)) {
       setFocusMode(externalFocusMode as FocusMode);
     }
-  }, [externalFocusMode, focusModes]);
-
-  // React to moderator remote control — secondary
-  useEffect(() => {
     if (externalSecondaryMode === undefined) return;
     if (externalSecondaryMode === null) {
       setSecondaryMode(null);
     } else if (focusModes.some((m) => m.key === externalSecondaryMode)) {
       setSecondaryMode(externalSecondaryMode as FocusMode);
     }
-  }, [externalSecondaryMode, focusModes]);
+  }, [externalViewVersion, externalFocusMode, externalSecondaryMode, focusModes]);
 
   // Toggle split: if already split, collapse. If single, split with a sensible default.
   const toggleSplit = useCallback(() => {

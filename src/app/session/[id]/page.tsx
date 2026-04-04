@@ -141,9 +141,12 @@ export default function LiveSessionPage() {
         quotes: 'quotes', audience: 'audience',
       };
       if (modeMap[view]) {
-        setRemoteFocusMode(modeMap[view]);
+        setRemoteViewCommand((prev) => ({
+          primary: modeMap[view],
+          secondary: secondary && modeMap[secondary] ? modeMap[secondary] : null,
+          v: (prev?.v || 0) + 1,
+        }));
       }
-      setRemoteSecondaryMode(secondary && modeMap[secondary] ? modeMap[secondary] : null);
     });
 
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
@@ -165,8 +168,7 @@ export default function LiveSessionPage() {
   }, [sessionId]);
 
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [remoteFocusMode, setRemoteFocusMode] = useState<string | null>(null);
-  const [remoteSecondaryMode, setRemoteSecondaryMode] = useState<string | null | undefined>(undefined);
+  const [remoteViewCommand, setRemoteViewCommand] = useState<{ primary: string; secondary: string | null; v: number } | null>(null);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -548,8 +550,9 @@ export default function LiveSessionPage() {
         isLive={isLive}
         focusModes={FOCUS_MODES}
         sidebarContent={sidebar}
-        externalFocusMode={remoteFocusMode}
-        externalSecondaryMode={remoteSecondaryMode}
+        externalFocusMode={remoteViewCommand?.primary ?? null}
+        externalSecondaryMode={remoteViewCommand?.secondary}
+        externalViewVersion={remoteViewCommand?.v}
       >
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>
