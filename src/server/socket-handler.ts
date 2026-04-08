@@ -27,14 +27,25 @@ export function setupSocketHandlers(io: TypedServer): void {
     // ===== Session Join/Leave =====
 
     socket.on('session:join', ({ sessionId, role }) => {
-      const session = sessionStore.getSession(sessionId);
-      if (!session) {
-        socket.emit('error', { message: 'Session hittades inte', code: 'SESSION_NOT_FOUND' });
-        return;
-      }
       socket.join(sessionId);
       socketSessions.set(socket.id, { sessionId, role });
-      sessionStore.addActiveUser(sessionId, socket.id);
+      const session = sessionStore.getSession(sessionId);
+      if (session) {
+        sessionStore.addActiveUser(sessionId, socket.id);
+
+        // Send existing data to the joining client so they don't miss anything
+        const summaries = sessionStore.getSummaries(sessionId);
+        const aiQuestions = sessionStore.getAIQuestions(sessionId);
+        const quotes = sessionStore.getQuotableMoments(sessionId);
+        const transcripts = sessionStore.getFinalTranscriptSince(sessionId, 0);
+        const audienceQuestions = sessionStore.getAudienceQuestions(sessionId);
+
+        if (summaries.length) summaries.forEach((s) => socket.emit('ai:summary', s));
+        if (aiQuestions.length) socket.emit('ai:questions', aiQuestions);
+        if (quotes.length) socket.emit('ai:quotes', quotes);
+        if (transcripts.length) transcripts.forEach((t) => socket.emit('transcript:final', t));
+        if (audienceQuestions.length) audienceQuestions.forEach((q) => socket.emit('audience:question_added', q));
+      }
       console.log(`${role} joined session ${sessionId}`);
     });
 
@@ -46,12 +57,38 @@ export function setupSocketHandlers(io: TypedServer): void {
 
     // ===== Transcription Control =====
 
-    socket.on('transcription:start', (sessionId) => {
-      const session = sessionStore.getSession(sessionId);
-      if (!session) return;
+    socket.on('transcription:start', async (sessionId) => {
+      console.log(`[transcription:start] Requested for session ${sessionId}`);
+      let session = sessionStore.getSession(sessionId);
+      if (!session) {
+        console.log(`[transcription:start] Session not in socket store, fetching via HTTP...`);
+        try {
+          const port = process.env.PORT || '3000';
+          const res = await fetch(`http://localhost:${port}/api/sessions/${sessionId}`);
+          if (res.ok) {
+            session = await res.json();
+            console.log(`[transcription:start] Fetched session via HTTP: ${session?.title}`);
+            // Import into socket handler's store so AI processor can find it
+            if (session) {
+              sessionStore.importSession(session);
+              console.log(`[transcription:start] Imported session into local store`);
+            }
+          } else {
+            console.log(`[transcription:start] HTTP fetch failed: ${res.status}`);
+          }
+        } catch (e) {
+          console.error(`[transcription:start] HTTP fetch error:`, e);
+        }
+      }
+      if (!session) {
+        console.log(`[transcription:start] Session not found anywhere`);
+        socket.emit('session:error', { message: 'Session hittades inte', code: 'SESSION_NOT_FOUND' });
+        return;
+      }
+      console.log(`[transcription:start] Got session "${session.title}", language: ${session.settings?.language}`);
 
       if (transcriptionSessions.has(sessionId)) {
-        socket.emit('error', { message: 'Transkribering redan aktiv', code: 'ALREADY_ACTIVE' });
+        socket.emit('session:error', { message: 'Transkribering redan aktiv', code: 'ALREADY_ACTIVE' });
         return;
       }
 
@@ -66,8 +103,8 @@ export function setupSocketHandlers(io: TypedServer): void {
         },
         onError: (error) => {
           console.error(`Transcription error for session ${sessionId}:`, error);
-          io.to(sessionId).emit('error', {
-            message: 'Transkribieringsfel',
+          io.to(sessionId).emit('session:error', {
+            message: `Transkribieringsfel: ${error.message || error}`,
             code: 'TRANSCRIPTION_ERROR',
           });
         },
@@ -88,21 +125,23 @@ export function setupSocketHandlers(io: TypedServer): void {
       sessionStore.updateSessionStatus(sessionId, 'live');
       io.to(sessionId).emit('session:status_changed', 'live');
 
+      console.log(`[transcription:start] Starting Azure Speech transcription...`);
       transcriptionSession.start().then(() => {
+        console.log(`[transcription:start] Azure Speech started successfully!`);
         transcriptionSessions.set(sessionId, transcriptionSession);
 
         // Start AI processor with configured mode
+        const intervalMs = (session.settings?.summaryIntervalSeconds || 60) * 1000;
+        const mode = session.settings?.summaryMode || 'auto';
+        console.log(`[transcription:start] Starting AI processor (interval: ${intervalMs}ms, mode: ${mode})`);
         const aiProcessor = new AIProcessor(sessionId, {
-          onSummary: (summary) => io.to(sessionId).emit('ai:summary', summary),
-          onQuestions: (questions) => io.to(sessionId).emit('ai:questions', questions),
+          onSummary: (summary) => { console.log(`[ai] Summary generated for ${sessionId}`); io.to(sessionId).emit('ai:summary', summary); },
+          onQuestions: (questions) => { console.log(`[ai] ${questions.length} questions generated`); io.to(sessionId).emit('ai:questions', questions); },
           onClusters: (clusters) => io.to(sessionId).emit('audience:clusters_updated', clusters),
-          onQuotes: (quotes) => io.to(sessionId).emit('ai:quotes', quotes),
+          onQuotes: (quotes) => { console.log(`[ai] ${quotes.length} quotes extracted`); io.to(sessionId).emit('ai:quotes', quotes); },
           onTopicShift: (data) => io.to(sessionId).emit('ai:topic_shift', data),
         });
-        aiProcessor.start(
-          session.settings.summaryIntervalSeconds * 1000,
-          session.settings.summaryMode
-        );
+        aiProcessor.start(intervalMs, mode);
         aiProcessors.set(sessionId, aiProcessor);
 
         // Start engagement tracker
@@ -114,10 +153,9 @@ export function setupSocketHandlers(io: TypedServer): void {
         engagementTracker.start();
         engagementTrackers.set(sessionId, engagementTracker);
       }).catch((error) => {
-        console.error('Failed to start transcription:', error);
-        // Session stays live — moderator can still use it, just without auto-transcription
-        socket.emit('error', {
-          message: 'Transkribering kunde inte startas (kontrollera API-nycklar). Sessionen är aktiv men utan automatisk transkribering.',
+        console.error('[transcription:start] FAILED:', error?.message || error);
+        socket.emit('session:error', {
+          message: `Transkribering kunde inte startas: ${error?.message || 'Okänt fel'}. Kontrollera AZURE_SPEECH_KEY och AZURE_SPEECH_REGION.`,
           code: 'START_FAILED',
         });
       });

@@ -514,6 +514,23 @@ class SessionStore {
 
     return analytics.sort((a, b) => b.speakingPercentage - a.speakingPercentage);
   }
+  // Import a session object fetched from another source (e.g. API worker in dev mode)
+  importSession(sessionData: Session): void {
+    if (this.sessions.has(sessionData.id)) return; // don't overwrite
+    this.sessions.set(sessionData.id, sessionData);
+    if (sessionData.code) {
+      this.sessionsByCode.set(sessionData.code, sessionData.id);
+    }
+    // Initialize empty collections for this session
+    if (!this.transcripts.has(sessionData.id)) this.transcripts.set(sessionData.id, []);
+    if (!this.summaries.has(sessionData.id)) this.summaries.set(sessionData.id, []);
+    if (!this.aiQuestions.has(sessionData.id)) this.aiQuestions.set(sessionData.id, []);
+    if (!this.audienceQuestions.has(sessionData.id)) this.audienceQuestions.set(sessionData.id, []);
+    if (!this.questionClusters.has(sessionData.id)) this.questionClusters.set(sessionData.id, []);
+    if (!this.quotableMoments.has(sessionData.id)) this.quotableMoments.set(sessionData.id, []);
+    if (!this.polls.has(sessionData.id)) this.polls.set(sessionData.id, []);
+    console.log(`[session-store] Imported session "${sessionData.title}" (${sessionData.id})`);
+  }
 }
 
 export const sessionStore = new SessionStore();

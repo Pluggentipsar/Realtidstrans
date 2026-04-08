@@ -34,7 +34,7 @@ function getClient(): Anthropic {
     client = new Anthropic({
       apiKey: process.env.AZURE_CLAUDE_API_KEY!,
       baseURL: process.env.AZURE_CLAUDE_ENDPOINT
-        ? `${process.env.AZURE_CLAUDE_ENDPOINT}/anthropic/v1`
+        ? `${process.env.AZURE_CLAUDE_ENDPOINT}/anthropic`
         : undefined,
     });
   }
@@ -44,8 +44,12 @@ function getClient(): Anthropic {
 // Dual-model strategy:
 // FAST (Haiku) — cheap, fast, for frequent lightweight tasks (topic shift, quote extraction)
 // DEEP (Sonnet) — powerful, for complex analysis (summaries, questions, gap analysis, final summaries)
-const MODEL_DEEP = process.env.AZURE_CLAUDE_DEPLOYMENT_DEEP || process.env.AZURE_CLAUDE_DEPLOYMENT || 'claude-sonnet-4-20250514';
-const MODEL_FAST = process.env.AZURE_CLAUDE_DEPLOYMENT_FAST || 'claude-haiku-4-5-20251001';
+function getModelDeep(): string {
+  return process.env.AZURE_CLAUDE_DEPLOYMENT_DEEP || process.env.AZURE_CLAUDE_DEPLOYMENT || 'claude-sonnet-4-5';
+}
+function getModelFast(): string {
+  return process.env.AZURE_CLAUDE_DEPLOYMENT_FAST || 'claude-haiku-4-5';
+}
 
 type ModelTier = 'fast' | 'deep';
 
@@ -64,7 +68,7 @@ const MODEL_ROUTING: Record<string, ModelTier> = {
 
 function getModelForFunction(functionName: string): string {
   const tier = MODEL_ROUTING[functionName] || 'deep';
-  return tier === 'fast' ? MODEL_FAST : MODEL_DEEP;
+  return tier === 'fast' ? getModelFast() : getModelDeep();
 }
 
 // Global rate limiter (shared across all sessions)
@@ -114,12 +118,19 @@ async function callClaude(
   rateLimiter.recordRequest();
 
   const anthropic = getClient();
-  const response = await anthropic.messages.create({
-    model,
-    max_tokens: maxOutputTokens,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-  });
+  let response;
+  try {
+    response = await anthropic.messages.create({
+      model,
+      max_tokens: maxOutputTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+  } catch (apiError) {
+    const msg = apiError instanceof Error ? apiError.message : String(apiError);
+    console.error(`[claude-ai] API call failed for ${functionName}: ${msg}`);
+    throw apiError;
+  }
 
   const content = response.content[0];
   const text = content.type === 'text' ? content.text : '';

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 import { getSocket } from '@/lib/socket';
 import { AudioCapture } from '@/lib/audio-capture';
 import { TextSizeProvider } from '@/components/ui/text-size-provider';
@@ -82,7 +83,7 @@ export default function LiveSessionPage() {
   const socketRef = useRef(getSocket());
 
   useEffect(() => {
-    fetch(`/api/sessions/${sessionId}`).then((r) => r.json()).then(setSession).catch(console.error);
+    fetch(`/api/sessions/${sessionId}`).then((r) => r.json()).then((s) => { setSession(s); setIsLive(s.status === 'live'); }).catch(console.error);
   }, [sessionId]);
 
   useEffect(() => {
@@ -148,11 +149,23 @@ export default function LiveSessionPage() {
         }));
       }
     });
+    socket.on('session:speaker_identified', (speaker) => {
+      setSession((p) => p ? { ...p, speakers: [...p.speakers.filter(s => s.id !== speaker.id), speaker] } : p);
+    });
+    socket.on('session:error', (err) => {
+      console.error('Session error:', err);
+      setAudioError(err.message || 'Ett fel uppstod');
+    });
 
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
   }, [sessionId]);
 
-  useEffect(() => { transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [transcript]);
+  useEffect(() => {
+    // Only scroll if the ref is visible (i.e., transcript view is shown)
+    if (transcriptEndRef.current && transcriptEndRef.current.offsetParent !== null) {
+      transcriptEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [transcript]);
 
   // Offline buffering
   useEffect(() => {
@@ -266,13 +279,13 @@ export default function LiveSessionPage() {
                   <span>{formatTimestamp(s.coveringFrom)} - {formatTimestamp(s.coveringTo)}</span>
                   {s.topicLabel && <span className="badge-accent">{s.topicLabel}</span>}
                 </div>
-                <div className="leading-relaxed whitespace-pre-wrap" style={{ fontFamily: 'var(--font-body)' }}>{s.content}</div>
+                <div className="leading-relaxed prose prose-invert prose-sm max-w-none" style={{ fontFamily: 'var(--font-body)' }}><ReactMarkdown>{s.content}</ReactMarkdown></div>
               </div>
             ))}
             {gapAnalysis && (
               <div className="card-glow" style={{ borderColor: 'var(--color-warning)' }}>
                 <h3 className="font-bold mb-2" style={{ color: 'var(--color-warning)' }}>Vad har vi missat?</h3>
-                <div className="leading-relaxed whitespace-pre-wrap">{gapAnalysis}</div>
+                <div className="leading-relaxed prose prose-invert prose-sm max-w-none"><ReactMarkdown>{gapAnalysis}</ReactMarkdown></div>
               </div>
             )}
           </div>

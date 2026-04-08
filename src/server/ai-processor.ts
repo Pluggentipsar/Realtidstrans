@@ -122,7 +122,14 @@ export class AIProcessor {
 
     try {
       const session = sessionStore.getSession(this.sessionId);
-      if (!session || session.status !== 'live') return;
+      if (!session) {
+        console.log(`[ai-processor] Session ${this.sessionId} not found in store — skipping`);
+        return;
+      }
+      if (session.status !== 'live') {
+        console.log(`[ai-processor] Session status is "${session.status}" — skipping`);
+        return;
+      }
 
       const newSegments = sessionStore.getFinalTranscriptSince(
         this.sessionId,
@@ -252,7 +259,12 @@ export class AIProcessor {
       if (error instanceof Error && error.message === 'RATE_LIMITED') {
         console.warn('[ai-processor] Skipped processing cycle due to rate limit');
       } else {
-        console.error('AI processing error:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[ai-processor] ERROR: ${msg}`);
+        // Log full error for debugging
+        if (error instanceof Error && error.stack) {
+          console.error(error.stack);
+        }
       }
     } finally {
       this.isProcessing = false;

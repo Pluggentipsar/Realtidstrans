@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 import { getSocket } from '@/lib/socket';
 import { AudioCapture } from '@/lib/audio-capture';
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
@@ -79,6 +80,8 @@ export default function ModeratorPage() {
   const [projectorSecondary, setProjectorSecondary] = useState<string | null>(null);
   const [showAdvancedProjector, setShowAdvancedProjector] = useState(false);
 
+  const [leftView, setLeftView] = useState<'transcript' | 'summary' | 'quotes'>('transcript');
+
   // Poll creation
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -123,6 +126,13 @@ export default function ModeratorPage() {
       setSession((p) => p ? { ...p, status } : p);
       setIsLive(status === 'live');
     });
+    socket.on('session:speaker_identified', (speaker) => {
+      setSession((p) => p ? { ...p, speakers: [...p.speakers.filter(s => s.id !== speaker.id), speaker] } : p);
+    });
+    socket.on('session:error', (err) => {
+      console.error('Session error:', err);
+      setAudioError(err.message || 'Ett fel uppstod');
+    });
 
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
   }, [sessionId]);
@@ -158,6 +168,12 @@ export default function ModeratorPage() {
       audioCaptureRef.current = ac;
       await ac.start((chunk) => socketRef.current.emit('audio:chunk', { sessionId, chunk }));
       setAudioStream(ac.getStream());
+      // Update status via REST API so all clients (including projector) see it
+      await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'live' }),
+      });
       socketRef.current.emit('transcription:start', sessionId);
       setIsLive(true);
     } catch (err) {
@@ -174,6 +190,11 @@ export default function ModeratorPage() {
     setAudioStream(null);
     audioCaptureRef.current = null;
     socketRef.current.emit('transcription:stop', sessionId);
+    fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ended' }),
+    }).catch(() => {});
     setIsLive(false);
   }, [sessionId, recording]);
 
@@ -210,9 +231,10 @@ export default function ModeratorPage() {
   return (
     <div className="h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 h-11 flex-shrink-0" style={{ background: 'rgba(9,9,11,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="flex items-center justify-between px-4 h-11 flex-shrink-0" style={{ background: 'rgba(9,9,11,0.8)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.04)', borderTop: '2px solid var(--color-accent)' }}>
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold">{session.title}</span>
+          <span className="text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded" style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)', border: '1px solid rgba(217,119,6,0.1)' }}>MODERATOR</span>
           {isLive && <span className="badge-live text-xs">LIVE</span>}
           <button
             onClick={() => navigator.clipboard.writeText(session.code)}
@@ -258,7 +280,25 @@ export default function ModeratorPage() {
         {/* LEFT: Live transcript */}
         <div className="overflow-y-auto p-4" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[11px] tracking-widest uppercase font-medium" style={{ color: 'var(--color-text-muted)' }}>Transkript</h2>
+            <div className="flex items-center gap-1">
+              {[
+                { key: 'transcript' as const, label: 'Transkript' },
+                { key: 'summary' as const, label: `Sammanfattning (${summaries.length})` },
+                { key: 'quotes' as const, label: `Citat (${quotes.length})` },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setLeftView(tab.key)}
+                  className="px-2 py-1 rounded-md text-xs transition-all"
+                  style={{
+                    background: leftView === tab.key ? 'var(--color-accent)' : 'rgba(255,255,255,0.04)',
+                    color: leftView === tab.key ? 'white' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             {/* Speaker time bar */}
             {speakerAnalytics.length > 0 && (
               <div className="flex items-center gap-2">
@@ -272,24 +312,56 @@ export default function ModeratorPage() {
             )}
           </div>
 
-          {/* Latest summary banner */}
-          {latestSummary && (
-            <div className="mb-3 p-3 rounded-lg animate-fade-in" style={{ background: 'var(--color-accent-subtle)', border: '1px solid rgba(99,102,241,0.15)' }}>
-              <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Senaste sammanfattning</div>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 250)}...</p>
+          {leftView === 'transcript' && (
+            <>
+              {/* Latest summary banner */}
+              {latestSummary && (
+                <div className="mb-3 p-3 rounded-lg animate-fade-in" style={{ background: 'var(--color-accent-subtle)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                  <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Senaste sammanfattning</div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{latestSummary.content.slice(0, 250)}...</p>
+                </div>
+              )}
+
+              <div className="space-y-0.5">
+                {transcript.slice(-50).map((seg) => (
+                  <div key={seg.id} className={`transcript-line text-sm ${!seg.isFinal ? 'opacity-40' : ''}`} style={seg.isFinal ? { borderLeftColor: speakerColors[seg.speakerId] || 'var(--color-accent)' } : {}}>
+                    <span className="speaker-name text-xs" style={{ color: speakerColors[seg.speakerId] || 'var(--color-accent)' }}>{seg.speakerName}</span>
+                    <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>{formatTimestamp(seg.timestamp)}</span>
+                    <p className="leading-relaxed">{seg.text}</p>
+                  </div>
+                ))}
+                <div ref={transcriptEndRef} />
+              </div>
+            </>
+          )}
+
+          {leftView === 'summary' && (
+            <div className="space-y-4">
+              {summaries.length === 0 && <p className="text-center py-10 text-xs" style={{ color: 'var(--color-text-muted)' }}>Inga sammanfattningar ännu</p>}
+              {summaries.map((s) => (
+                <div key={s.id} className="animate-slide-up" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '1rem' }}>
+                  <div className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    {s.topicLabel && <span className="badge-accent">{s.topicLabel}</span>}
+                  </div>
+                  <div className="leading-relaxed prose prose-invert prose-xs max-w-none text-sm">
+                    <ReactMarkdown>{s.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          <div className="space-y-0.5">
-            {transcript.slice(-50).map((seg) => (
-              <div key={seg.id} className={`transcript-line text-sm ${!seg.isFinal ? 'opacity-40' : ''}`} style={seg.isFinal ? { borderLeftColor: speakerColors[seg.speakerId] || 'var(--color-accent)' } : {}}>
-                <span className="speaker-name text-xs" style={{ color: speakerColors[seg.speakerId] || 'var(--color-accent)' }}>{seg.speakerName}</span>
-                <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>{formatTimestamp(seg.timestamp)}</span>
-                <p className="leading-relaxed">{seg.text}</p>
-              </div>
-            ))}
-            <div ref={transcriptEndRef} />
-          </div>
+          {leftView === 'quotes' && (
+            <div className="space-y-3">
+              {quotes.length === 0 && <p className="text-center py-10 text-xs" style={{ color: 'var(--color-text-muted)' }}>Inga citat ännu</p>}
+              {quotes.sort((a, b) => b.impactScore - a.impactScore).map((q) => (
+                <div key={q.id} className="quote-block" style={{ padding: '0.5rem 0.75rem', margin: '0.25rem 0' }}>
+                  <p className="text-sm italic">&ldquo;{q.quote}&rdquo;</p>
+                  <span className="text-xs" style={{ color: 'var(--color-accent)' }}>— {q.speakerName}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* MIDDLE: AI Questions + Quotes (the moderator's main tool) */}

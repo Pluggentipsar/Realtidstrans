@@ -162,6 +162,7 @@ export function PresentationView({
                 <span className="badge-live">LIVE</span>
               </div>
             )}
+            <span className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.2)' }}>PROJEKTOR</span>
           </div>
           <div className="flex items-center gap-3">
             {splitButton}
@@ -225,15 +226,15 @@ export function PresentationView({
         {/* Content — split or single */}
         {isSplit ? (
           <div className="flex-1 flex gap-1 px-4 py-4 min-h-0">
-            <div className="flex-1 overflow-y-auto presentation-content px-4" style={{ borderRight: '1px solid rgba(255,255,255,0.03)', boxShadow: '1px 0 20px rgba(0,0,0,0.3)' }}>
+            <div className="flex-1 overflow-y-auto presentation-content px-4" style={{ borderRight: '1px solid rgba(255,255,255,0.03)', boxShadow: '1px 0 20px rgba(0,0,0,0.3)', overflowAnchor: 'auto' }}>
               {children(focusMode)}
             </div>
-            <div className="flex-1 overflow-y-auto presentation-content px-4">
+            <div className="flex-1 overflow-y-auto presentation-content px-4" style={{ overflowAnchor: 'auto' }}>
               {children(secondaryMode!)}
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-8 py-4 presentation-content" style={{ maxWidth: '75ch', margin: '0 auto' }}>
+          <div className="flex-1 overflow-y-auto px-8 py-4 presentation-content" style={{ maxWidth: '75ch', margin: '0 auto', overflowAnchor: 'auto' }}>
             {children(focusMode)}
           </div>
         )}
@@ -252,6 +253,7 @@ export function PresentationView({
             <div className="flex items-center gap-3 mt-0.5">
               <span className="font-mono text-indigo-400 font-bold">{sessionCode}</span>
               {isLive && <span className="badge-live">LIVE</span>}
+              <span className="text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded" style={{ color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>PROJEKTOR</span>
             </div>
           </div>
         </div>
@@ -296,12 +298,12 @@ export function PresentationView({
 
       {/* Content grid */}
       <div className={`grid gap-5 ${showSidebar && sidebarContent ? (isSplit ? 'grid-cols-1 lg:grid-cols-[1fr_1fr_320px]' : 'grid-cols-1 lg:grid-cols-[1fr_320px]') : (isSplit ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1')}`}>
-        <div className="min-h-[60vh] max-h-[72vh] overflow-y-auto card" style={isSplit ? { borderRight: '1px solid rgba(255,255,255,0.04)' } : undefined}>
+        <div className="min-h-[60vh] max-h-[72vh] overflow-y-auto card" style={isSplit ? { borderRight: '1px solid rgba(255,255,255,0.04)', overflowAnchor: 'auto' } : { overflowAnchor: 'auto' }}>
           {children(focusMode)}
         </div>
 
         {isSplit && (
-          <div className="min-h-[60vh] max-h-[72vh] overflow-y-auto card">
+          <div className="min-h-[60vh] max-h-[72vh] overflow-y-auto card" style={{ overflowAnchor: 'auto' }}>
             {children(secondaryMode!)}
           </div>
         )}

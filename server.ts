@@ -1,3 +1,6 @@
+import { config } from 'dotenv';
+config(); // Load .env before anything else
+
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
