@@ -203,10 +203,10 @@ export function ExportPanel({
         </button>
       </div>
 
-      {summaries.filter((s) => s.type.startsWith('final_')).length > 0 && (
+      {summaries.filter((s) => s.type?.startsWith('final_')).length > 0 && (
         <button
           onClick={() => {
-            const final = summaries.filter((s) => s.type.startsWith('final_'));
+            const final = summaries.filter((s) => s.type?.startsWith('final_'));
             copyToClipboard(final.map((s) => s.content).join('\n\n---\n\n'));
           }}
           className="btn-ghost text-xs py-2 w-full"
