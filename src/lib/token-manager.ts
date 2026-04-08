@@ -51,6 +51,11 @@ export const TOKEN_BUDGETS = {
     maxInputTokens: 10_000,
     maxOutputTokens: 1_024,
   },
+  // Suggest next question from prepared list
+  suggestQuestion: {
+    maxInputTokens: 4_000,
+    maxOutputTokens: 256,
+  },
 };
 
 /**

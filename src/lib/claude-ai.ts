@@ -16,6 +16,8 @@ import {
   getTopicShiftPrompt,
   getQuoteExtractionPrompt,
   getGapAnalysisPrompt,
+  getSuggestNextQuestionPrompt,
+  getAgendaStructuredSummaryPrompt,
 } from '@/lib/prompts/system';
 import { generateId } from '@/lib/utils';
 import {
@@ -64,6 +66,7 @@ const MODEL_ROUTING: Record<string, ModelTier> = {
   finalSummary: 'deep',          // Most important output
   finalSummary_chunk: 'fast',    // Pre-summarization chunks
   audienceClustering: 'fast',    // Grouping task
+  suggestQuestion: 'fast',       // Quick suggestion from prepared questions
 };
 
 function getModelForFunction(functionName: string): string {
@@ -282,6 +285,65 @@ export async function extractQuotes(
     console.error('Failed to parse quote extraction response');
     return [];
   }
+}
+
+// ===== Suggest Next Question =====
+
+export async function suggestNextQuestion(
+  sessionId: string,
+  sessionContext: string,
+  recentTranscript: string,
+  pendingQuestions: Array<{ id: string; question: string; targetSpeaker?: string; priority: string }>,
+  currentAgendaItem?: { title: string; description: string }
+): Promise<{ suggestedQuestionId: string | null; reasoning: string; confidence: number }> {
+  if (pendingQuestions.length === 0) return { suggestedQuestionId: null, reasoning: '', confidence: 0 };
+
+  const systemPrompt = getSuggestNextQuestionPrompt(sessionContext, pendingQuestions, currentAgendaItem);
+  const text = await callClaude(sessionId, 'suggestQuestion', systemPrompt, recentTranscript, 256);
+
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return { suggestedQuestionId: null, reasoning: '', confidence: 0 };
+    return JSON.parse(match[0]);
+  } catch {
+    console.error('Failed to parse question suggestion response');
+    return { suggestedQuestionId: null, reasoning: '', confidence: 0 };
+  }
+}
+
+// ===== Agenda Structured Summary =====
+
+export async function generateAgendaStructuredSummary(
+  sessionId: string,
+  sessionContext: string,
+  fullTranscript: string,
+  agendaItems: Array<{ id: string; title: string; description: string; status: string }>
+): Promise<AISummary> {
+  const systemPrompt = getAgendaStructuredSummaryPrompt(sessionContext, agendaItems);
+
+  const truncatedTranscript = truncateToTokenBudget(
+    fullTranscript,
+    TOKEN_BUDGETS.finalSummary.maxInputTokens,
+    'keep_both'
+  );
+
+  const text = await callClaude(
+    sessionId,
+    'finalSummary',
+    systemPrompt,
+    truncatedTranscript,
+    TOKEN_BUDGETS.finalSummary.maxOutputTokens
+  );
+
+  return {
+    id: generateId(),
+    sessionId,
+    content: text,
+    type: 'final_agenda_structured',
+    coveringFrom: 0,
+    coveringTo: Date.now(),
+    createdAt: new Date(),
+  };
 }
 
 // ===== Gap Analysis =====

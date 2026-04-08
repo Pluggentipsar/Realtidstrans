@@ -88,7 +88,7 @@ export default function NewSessionPage() {
   };
 
   // Helpers
-  const addAgendaItem = () => setAgenda([...agenda, { id: generateId(), title: '', description: '', order: agenda.length + 1 }]);
+  const addAgendaItem = () => setAgenda([...agenda, { id: generateId(), title: '', description: '', order: agenda.length + 1, status: 'upcoming' as const }]);
   const removeAgendaItem = (id: string) => setAgenda(agenda.filter((a) => a.id !== id));
   const updateAgendaItem = (id: string, updates: Partial<AgendaItem>) => setAgenda(agenda.map((a) => a.id === id ? { ...a, ...updates } : a));
 

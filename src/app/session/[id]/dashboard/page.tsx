@@ -9,6 +9,7 @@ import {
   QUESTION_CATEGORY_LABELS, QUOTE_CATEGORY_LABELS, REACTION_EMOJIS, ReactionType,
 } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 export default function DashboardPage() {
   const params = useParams();
@@ -41,7 +42,7 @@ export default function DashboardPage() {
     }).catch(console.error);
   }, [sessionId]);
 
-  const genSummary = async (type: 'chronological' | 'thematic') => {
+  const genSummary = async (type: 'chronological' | 'thematic' | 'agenda_structured') => {
     setIsGenerating(true);
     try {
       const r = await fetch(`/api/sessions/${sessionId}/summary`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) });
@@ -61,7 +62,7 @@ export default function DashboardPage() {
   if (!session) return <div className="flex items-center justify-center min-h-[60vh]"><div style={{ color: 'var(--color-text-muted)' }}>Laddar...</div></div>;
 
   const intervalSummaries = summaries.filter((s) => s.type === 'interval' || s.type === 'topic_shift');
-  const finalSummaries = summaries.filter((s) => s.type === 'final_chronological' || s.type === 'final_thematic');
+  const finalSummaries = summaries.filter((s) => s.type === 'final_chronological' || s.type === 'final_thematic' || s.type === 'final_agenda_structured');
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -113,6 +114,11 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => genSummary('chronological')} disabled={isGenerating} className="btn-primary text-sm">Kronologisk</button>
               <button onClick={() => genSummary('thematic')} disabled={isGenerating} className="btn-secondary text-sm">Tematisk</button>
+              {session.briefing?.agenda && session.briefing.agenda.length > 0 && (
+                <button onClick={() => genSummary('agenda_structured' as any)} disabled={isGenerating} className="btn-secondary text-sm" style={{ borderColor: 'rgba(52,211,153,0.3)', color: 'var(--color-success)' }}>
+                  {isGenerating ? 'Genererar...' : '📋 Dagordningsbaserad'}
+                </button>
+              )}
               <button onClick={analyzeGaps} disabled={isAnalyzing} className="btn-secondary text-sm" style={{ borderColor: 'rgba(245,158,11,0.3)', color: 'var(--color-warning)' }}>
                 {isAnalyzing ? 'Analyserar...' : 'Vad har vi missat?'}
               </button>
@@ -121,15 +127,15 @@ export default function DashboardPage() {
 
           {finalSummaries.map((s) => (
             <div key={s.id} className="card">
-              <h3 className="text-sm font-semibold tracking-tight mb-3">{s.type === 'final_chronological' ? 'Kronologisk' : 'Tematisk'} sammanfattning</h3>
-              <div className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{s.content}</div>
+              <h3 className="text-sm font-semibold tracking-tight mb-3">{s.type === 'final_chronological' ? 'Kronologisk' : s.type === 'final_thematic' ? 'Tematisk' : 'Dagordningsbaserad'} sammanfattning</h3>
+              <div className="leading-relaxed prose prose-invert prose-sm max-w-none" style={{ color: 'var(--color-text-secondary)' }}><ReactMarkdown>{s.content}</ReactMarkdown></div>
             </div>
           ))}
 
           {gapAnalysis && (
             <div className="card-glow" style={{ borderColor: 'var(--color-warning)' }}>
               <h3 className="font-bold mb-3" style={{ color: 'var(--color-warning)' }}>Vad har vi missat?</h3>
-              <div className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{gapAnalysis.content}</div>
+              <div className="leading-relaxed prose prose-invert prose-sm max-w-none" style={{ color: 'var(--color-text-secondary)' }}><ReactMarkdown>{gapAnalysis.content}</ReactMarkdown></div>
             </div>
           )}
 
@@ -156,6 +162,9 @@ export default function DashboardPage() {
             aiQuestions={aiQuestions}
             quotes={quotes}
             audienceQuestions={audienceQuestions}
+            agendaItems={session.briefing?.agenda}
+            preparedQuestions={session.briefing?.preparedQuestions}
+            hostName={session.hostName}
           />
         </div>
       )}

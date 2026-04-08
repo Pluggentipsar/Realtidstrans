@@ -45,12 +45,17 @@ export const SESSION_FORMAT_LABELS: Record<SessionFormat, string> = {
   other: 'Annat',
 };
 
+export type AgendaItemStatus = 'upcoming' | 'in_progress' | 'done';
+
 export interface AgendaItem {
   id: string;
   title: string;
   description: string;
   durationMinutes?: number;
   order: number;
+  status: AgendaItemStatus;
+  startedAt?: number;
+  completedAt?: number;
 }
 
 export interface PreparedQuestion {
@@ -226,7 +231,7 @@ export interface AISummary {
   createdAt: Date;
 }
 
-export type SummaryType = 'interval' | 'topic_shift' | 'final_chronological' | 'final_thematic' | 'gap_analysis';
+export type SummaryType = 'interval' | 'topic_shift' | 'final_chronological' | 'final_thematic' | 'final_agenda_structured' | 'gap_analysis';
 
 export interface AIQuestion {
   id: string;
@@ -414,7 +419,10 @@ export interface ServerToClientEvents {
   'projector:set_view': (data: { view: string; content?: string }) => void;
   'moderator:question_highlighted': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
   'moderator:question_dismissed': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
-  'error': (error: { message: string; code: string }) => void;
+  'session:error': (error: { message: string; code: string }) => void;
+  'agenda:item_updated': (data: { itemId: string; status: AgendaItemStatus; detectedByAi?: boolean }) => void;
+  'agenda:current_detected': (data: { itemId: string; confidence: number; reason: string }) => void;
+  'ai:question_suggestion': (data: { suggestedQuestionId: string; reasoning: string; confidence: number }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -440,5 +448,6 @@ export interface ClientToServerEvents {
   // Moderator actions
   'moderator:highlight_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
   'moderator:dismiss_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
-  'moderator:set_projector_view': (data: { sessionId: string; view: string; content?: string }) => void;
+  'moderator:set_projector_view': (data: { sessionId: string; view: string; secondary?: string; content?: string }) => void;
+  'moderator:update_agenda_item': (data: { sessionId: string; itemId: string; status: AgendaItemStatus }) => void;
 }

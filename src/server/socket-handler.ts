@@ -140,6 +140,15 @@ export function setupSocketHandlers(io: TypedServer): void {
           onClusters: (clusters) => io.to(sessionId).emit('audience:clusters_updated', clusters),
           onQuotes: (quotes) => { console.log(`[ai] ${quotes.length} quotes extracted`); io.to(sessionId).emit('ai:quotes', quotes); },
           onTopicShift: (data) => io.to(sessionId).emit('ai:topic_shift', data),
+          onAgendaDetected: (data) => {
+            console.log(`[ai] Agenda item detected: ${data.itemId} (confidence: ${data.confidence})`);
+            io.to(sessionId).emit('agenda:current_detected', data);
+            io.to(sessionId).emit('agenda:item_updated', { itemId: data.itemId, status: 'in_progress', detectedByAi: true });
+          },
+          onQuestionSuggestion: (data) => {
+            console.log(`[ai] Question suggestion: ${data.suggestedQuestionId} (confidence: ${data.confidence})`);
+            io.to(sessionId).emit('ai:question_suggestion', data);
+          },
         });
         aiProcessor.start(intervalMs, mode);
         aiProcessors.set(sessionId, aiProcessor);
@@ -306,6 +315,11 @@ export function setupSocketHandlers(io: TypedServer): void {
         if (q) q.status = 'answered';
       }
       io.to(sessionId).emit('moderator:question_dismissed', { questionId, source });
+    });
+
+    socket.on('moderator:update_agenda_item', ({ sessionId, itemId, status }) => {
+      sessionStore.updateAgendaItemStatus(sessionId, itemId, status);
+      io.to(sessionId).emit('agenda:item_updated', { itemId, status, detectedByAi: false });
     });
 
     socket.on('moderator:set_projector_view', ({ sessionId, view, secondary, content }) => {

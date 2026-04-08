@@ -6,8 +6,10 @@ import {
   clusterAudienceQuestions,
   detectTopicShift,
   extractQuotes,
+  suggestNextQuestion,
 } from '@/lib/claude-ai';
 import {
+  AgendaItem,
   AISummary,
   AIQuestion,
   QuestionCluster,
@@ -27,6 +29,8 @@ interface AIProcessorCallbacks {
   onClusters: (clusters: QuestionCluster[]) => void;
   onQuotes: (quotes: QuotableMoment[]) => void;
   onTopicShift: (data: { topic: string; timestamp: number }) => void;
+  onAgendaDetected?: (data: { itemId: string; confidence: number; reason: string }) => void;
+  onQuestionSuggestion?: (data: { suggestedQuestionId: string; reasoning: string; confidence: number }) => void;
 }
 
 const MAX_TOPIC_WINDOW_CHARS = 7_000;
@@ -254,6 +258,30 @@ export class AIProcessor {
       this.lastProcessedTimestamp = endTime;
       this.lastSummaryTime = Date.now();
 
+      // Suggest next prepared question if any are pending
+      const pendingPrepared = (session.briefing?.preparedQuestions || []).filter(
+        (q: { status: string }) => q.status === 'pending'
+      );
+      if (pendingPrepared.length > 0) {
+        try {
+          const currentAgendaItem = (session.briefing?.agenda || []).find(
+            (a: AgendaItem) => a.status === 'in_progress'
+          );
+          const suggestion = await suggestNextQuestion(
+            this.sessionId,
+            sessionContext,
+            transcriptText,
+            pendingPrepared,
+            currentAgendaItem
+          );
+          if (suggestion.suggestedQuestionId && suggestion.confidence > 0.5) {
+            this.callbacks.onQuestionSuggestion?.(suggestion);
+          }
+        } catch (e) {
+          console.error('[ai-processor] Question suggestion failed:', e instanceof Error ? e.message : e);
+        }
+      }
+
       await this.maybeClusterQuestions();
     } catch (error) {
       if (error instanceof Error && error.message === 'RATE_LIMITED') {
@@ -320,6 +348,27 @@ export class AIProcessor {
         // The cooldown mechanism will queue it if too soon after last summary
         if (this.summaryMode !== 'interval') {
           await this.processNewTranscript('topic_shift', result.newTopic);
+        }
+      }
+
+      // Agenda item detection from topic shift response
+      if (result?.matchedAgendaItemId && result.agendaMatchConfidence > 0.7) {
+        const agenda = session.briefing?.agenda || [];
+        const matchedItem = agenda.find((a: AgendaItem) => a.id === result.matchedAgendaItemId);
+        if (matchedItem && matchedItem.status !== 'done') {
+          // Auto-advance: mark previous in_progress as done
+          const currentItem = agenda.find((a: AgendaItem) => a.status === 'in_progress');
+          if (currentItem && currentItem.id !== result.matchedAgendaItemId) {
+            sessionStore.updateAgendaItemStatus(this.sessionId, currentItem.id, 'done');
+          }
+          if (matchedItem.status !== 'in_progress') {
+            sessionStore.updateAgendaItemStatus(this.sessionId, result.matchedAgendaItemId, 'in_progress');
+          }
+          this.callbacks.onAgendaDetected?.({
+            itemId: result.matchedAgendaItemId,
+            confidence: result.agendaMatchConfidence,
+            reason: result.newTopic || result.previousTopic || '',
+          });
         }
       }
     } catch (error) {

@@ -81,6 +81,7 @@ export default function ModeratorPage() {
   const [showAdvancedProjector, setShowAdvancedProjector] = useState(false);
 
   const [leftView, setLeftView] = useState<'transcript' | 'summary' | 'quotes'>('transcript');
+  const [questionSuggestion, setQuestionSuggestion] = useState<{ suggestedQuestionId: string; reasoning: string; confidence: number } | null>(null);
 
   // Poll creation
   const [showPollForm, setShowPollForm] = useState(false);
@@ -132,6 +133,19 @@ export default function ModeratorPage() {
     socket.on('session:error', (err) => {
       console.error('Session error:', err);
       setAudioError(err.message || 'Ett fel uppstod');
+    });
+
+    socket.on('agenda:item_updated', ({ itemId, status }) => {
+      setSession((p) => {
+        if (!p?.briefing?.agenda) return p;
+        return { ...p, briefing: { ...p.briefing, agenda: p.briefing.agenda.map((a) => a.id === itemId ? { ...a, status, ...(status === 'in_progress' ? { startedAt: Date.now() } : {}), ...(status === 'done' ? { completedAt: Date.now() } : {}) } : a) } };
+      });
+    });
+    socket.on('agenda:current_detected', ({ itemId, confidence, reason }) => {
+      console.log(`AI detected agenda item ${itemId} (${confidence}): ${reason}`);
+    });
+    socket.on('ai:question_suggestion', (data) => {
+      setQuestionSuggestion(data);
     });
 
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
@@ -201,6 +215,15 @@ export default function ModeratorPage() {
   const changeTarget = useCallback((target: QuestionTarget) => {
     setQuestionTarget(target);
     socketRef.current.emit('settings:update_question_target', { sessionId, target });
+  }, [sessionId]);
+
+  const updateAgendaItem = useCallback((itemId: string, status: 'upcoming' | 'in_progress' | 'done') => {
+    socketRef.current.emit('moderator:update_agenda_item', { sessionId, itemId, status });
+    fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agendaItemUpdate: { itemId, status } }),
+    }).catch(() => {});
   }, [sessionId]);
 
   const [pollError, setPollError] = useState('');
@@ -366,6 +389,46 @@ export default function ModeratorPage() {
 
         {/* MIDDLE: AI Questions + Quotes (the moderator's main tool) */}
         <div className="overflow-y-auto" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+          {/* Question suggestion banner */}
+            {questionSuggestion && (() => {
+              const suggested = session.briefing?.preparedQuestions?.find((q) => q.id === questionSuggestion.suggestedQuestionId);
+              if (!suggested) return null;
+              return (
+                <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(217,119,6,0.04)' }}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-sm">💡</span>
+                    <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: 'var(--color-accent)' }}>FÖRESLAGEN FRÅGA</span>
+                  </div>
+                  <p className="text-sm font-medium leading-relaxed mb-1.5">{suggested.question}</p>
+                  {suggested.targetSpeaker && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-accent)' }}>🎯 {suggested.targetSpeaker}</p>
+                  )}
+                  <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>{questionSuggestion.reasoning}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        fetch(`/api/sessions/${sessionId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ preparedQuestionUpdate: { questionId: suggested.id, status: 'asked' } }),
+                        }).then((r) => r.json()).then(setSession);
+                        setQuestionSuggestion(null);
+                      }}
+                      className="btn-primary text-xs py-1.5 px-3"
+                    >
+                      ✓ Ställ frågan
+                    </button>
+                    <button
+                      onClick={() => setQuestionSuggestion(null)}
+                      className="btn-ghost text-xs py-1.5 px-3"
+                    >
+                      Hoppa över
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
           {/* Focus selector */}
           <div className="p-3 flex items-center gap-2 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Fokus:</span>
@@ -493,6 +556,55 @@ export default function ModeratorPage() {
                 onStop={() => recording.stopRecording()}
                 onDownload={() => recording.downloadRecording()}
               />
+            </div>
+          )}
+
+          {/* Agenda */}
+          {session.briefing?.agenda && session.briefing.agenda.length > 0 && (
+            <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[11px] tracking-widest uppercase font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                  DAGORDNING
+                </h3>
+                <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {session.briefing.agenda.filter((a) => a.status === 'done').length}/{session.briefing.agenda.length}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1 rounded-full mb-3 overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(session.briefing.agenda.filter((a) => a.status === 'done').length / session.briefing.agenda.length) * 100}%`, background: 'var(--color-success)' }} />
+              </div>
+              <div className="space-y-1">
+                {session.briefing.agenda.sort((a, b) => a.order - b.order).map((item, idx) => {
+                  const isActive = item.status === 'in_progress';
+                  const isDone = item.status === 'done';
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const nextStatus = item.status === 'upcoming' ? 'in_progress' : item.status === 'in_progress' ? 'done' : 'upcoming';
+                        updateAgendaItem(item.id, nextStatus);
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all text-xs"
+                      style={{
+                        background: isActive ? 'var(--color-accent-subtle)' : 'transparent',
+                        border: isActive ? '1px solid rgba(217,119,6,0.15)' : '1px solid transparent',
+                        opacity: isDone ? 0.5 : 1,
+                      }}
+                    >
+                      <span style={{ color: isDone ? 'var(--color-success)' : isActive ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
+                        {isDone ? '✓' : isActive ? '►' : '○'}
+                      </span>
+                      <span className="flex-1 truncate" style={{ textDecoration: isDone ? 'line-through' : 'none', color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                        {idx + 1}. {item.title}
+                      </span>
+                      {item.durationMinutes && (
+                        <span style={{ color: 'var(--color-text-muted)' }}>{item.durationMinutes}m</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -732,6 +844,9 @@ export default function ModeratorPage() {
               aiQuestions={aiQuestions}
               quotes={quotes}
               audienceQuestions={audienceQuestions}
+              agendaItems={session.briefing?.agenda}
+              preparedQuestions={session.briefing?.preparedQuestions}
+              hostName={session.hostName}
             />
           </div>
         </div>

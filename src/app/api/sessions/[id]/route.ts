@@ -34,5 +34,10 @@ export async function PATCH(
     sessionStore.updatePreparedQuestionStatus(id, questionId, status);
   }
 
+  if (body.agendaItemUpdate) {
+    const { itemId, status } = body.agendaItemUpdate;
+    sessionStore.updateAgendaItemStatus(id, itemId, status);
+  }
+
   return NextResponse.json(sessionStore.getSession(id));
 }

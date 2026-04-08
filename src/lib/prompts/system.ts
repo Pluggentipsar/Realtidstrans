@@ -271,16 +271,98 @@ ${sessionContext}
 INSTRUKTIONER:
 Analysera de senaste transkriptionssegmenten och avgör om ett ämnesbyte har skett.
 
+Om sessionen har en dagordning, identifiera vilken dagordningspunkt som diskuteras just nu. Ange ID:t för den matchande punkten och din konfidens.
+
 Svara i JSON-format:
 {
   "topicShiftDetected": true/false,
   "previousTopic": "Kort beskrivning av föregående ämne",
   "newTopic": "Kort beskrivning av det nya ämnet",
   "confidence": 0.85,
-  "transitionType": "gradual" | "abrupt" | "return_to_previous"
+  "transitionType": "gradual" | "abrupt" | "return_to_previous",
+  "matchedAgendaItemId": "id of the agenda item that matches the current discussion, or null if no match",
+  "agendaMatchConfidence": 0.0-1.0
 }
 
 Var konservativ — flagga bara tydliga ämnesbyten, inte mindre variationer inom samma tema.`;
+}
+
+export function getSuggestNextQuestionPrompt(
+  sessionContext: string,
+  pendingQuestions: Array<{ id: string; question: string; targetSpeaker?: string; priority: string }>,
+  currentAgendaItem?: { title: string; description: string }
+): string {
+  const questionsText = pendingQuestions.map((q, i) =>
+    `${i + 1}. [ID: ${q.id}] [Prioritet: ${q.priority}] ${q.question}${q.targetSpeaker ? ` (till ${q.targetSpeaker})` : ''}`
+  ).join('\n');
+
+  const agendaText = currentAgendaItem
+    ? `\nAktiv dagordningspunkt: "${currentAgendaItem.title}" — ${currentAgendaItem.description}`
+    : '';
+
+  return `Du är en erfaren intervjucoach. Sessionkontext:
+
+${sessionContext}
+${agendaText}
+
+FÖRBEREDDA FRÅGOR (ännu ej ställda):
+${questionsText}
+
+INSTRUKTIONER:
+Baserat på den senaste transkriptionen, vilken av de förberedda frågorna passar BÄST att ställa härnäst?
+
+Tänk på:
+- Naturligt flöde — frågan ska knyta an till vad som just sagts
+- Prioritet — "must_ask" frågor bör prioriteras
+- Dagordning — om en dagordningspunkt diskuteras, välj frågor relaterade till den
+- Timing — välj inte en fråga om ämnet redan täckts av samtalet
+
+Svara i JSON-format:
+{
+  "suggestedQuestionId": "id-of-best-question eller null om ingen passar just nu",
+  "reasoning": "En kort mening som förklarar varför denna fråga passar nu",
+  "confidence": 0.0-1.0
+}
+
+Om ingen fråga passar just nu (t.ex. samtalet är inne i ett intressant spår), svara med null.`;
+}
+
+export function getAgendaStructuredSummaryPrompt(
+  sessionContext: string,
+  agendaItems: Array<{ id: string; title: string; description: string; status: string }>
+): string {
+  const agendaText = agendaItems.map((item, i) =>
+    `${i + 1}. ${item.title}${item.description ? ` — ${item.description}` : ''} [Status: ${item.status}]`
+  ).join('\n');
+
+  return `Du är en expert på mötesdokumentation. Sessionkontext:
+
+${sessionContext}
+
+DAGORDNING:
+${agendaText}
+
+INSTRUKTIONER:
+Skapa en strukturerad sammanfattning organiserad efter dagordningens punkter.
+
+För varje dagordningspunkt, skriv:
+### {Punkt nummer}. {Titel}
+**Sammanfattning:** Vad diskuterades under denna punkt?
+**Beslut:** Eventuella beslut som togs (eller "Inga explicita beslut")
+**Åtgärder:** Eventuella åtgärder/nästa steg som nämndes (eller "Inga nämnda")
+
+Om en dagordningspunkt inte diskuterades, skriv:
+### {Punkt}. {Titel}
+⚠️ *Denna punkt togs inte upp under sessionen.*
+
+Avsluta med:
+## Övergripande slutsatser
+- 2-3 bullet points med de viktigaste insikterna
+
+## Ej behandlade frågor
+- Lista eventuella förberedda frågor som inte ställdes (om relevant)
+
+Skriv på svenska. Var koncis men informativ.`;
 }
 
 export function getQuoteExtractionPrompt(sessionContext: string): string {

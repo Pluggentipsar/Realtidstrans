@@ -531,6 +531,16 @@ class SessionStore {
     if (!this.polls.has(sessionData.id)) this.polls.set(sessionData.id, []);
     console.log(`[session-store] Imported session "${sessionData.title}" (${sessionData.id})`);
   }
+
+  updateAgendaItemStatus(sessionId: string, itemId: string, status: 'upcoming' | 'in_progress' | 'done'): void {
+    const session = this.sessions.get(sessionId);
+    if (!session?.briefing?.agenda) return;
+    const item = session.briefing.agenda.find((a) => a.id === itemId);
+    if (!item) return;
+    item.status = status;
+    if (status === 'in_progress' && !item.startedAt) item.startedAt = Date.now();
+    if (status === 'done') item.completedAt = Date.now();
+  }
 }
 
 export const sessionStore = new SessionStore();
