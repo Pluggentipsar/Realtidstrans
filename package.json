@@ -6,9 +6,12 @@
     "dev": "next dev",
     "dev:server": "npx tsx server.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx server.ts",
     "lint": "eslint",
     "type-check": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
@@ -22,6 +25,7 @@
     "react-markdown": "^10.1.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "tsx": "^4.21.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
@@ -33,7 +37,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

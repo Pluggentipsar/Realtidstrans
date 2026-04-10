@@ -416,7 +416,7 @@ export interface ServerToClientEvents {
   'audio:device_joined': (device: AudioDevice) => void;
   'audio:device_left': (deviceId: string) => void;
   // Moderator → Projector control
-  'projector:set_view': (data: { view: string; content?: string }) => void;
+  'projector:set_view': (data: { view: string; secondary?: string; content?: string }) => void;
   'moderator:question_highlighted': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
   'moderator:question_dismissed': (data: { questionId: string; source: 'ai' | 'audience' }) => void;
   'session:error': (error: { message: string; code: string }) => void;

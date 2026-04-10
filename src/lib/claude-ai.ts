@@ -230,6 +230,8 @@ export async function detectTopicShift(
   newTopic: string;
   confidence: number;
   transitionType: 'gradual' | 'abrupt' | 'return_to_previous';
+  matchedAgendaItemId?: string | null;
+  agendaMatchConfidence?: number;
 } | null> {
   const budget = TOKEN_BUDGETS.topicShift;
   const halfBudget = Math.floor(budget.maxInputTokens / 2);

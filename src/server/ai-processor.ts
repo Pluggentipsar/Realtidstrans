@@ -275,7 +275,7 @@ export class AIProcessor {
             currentAgendaItem
           );
           if (suggestion.suggestedQuestionId && suggestion.confidence > 0.5) {
-            this.callbacks.onQuestionSuggestion?.(suggestion);
+            this.callbacks.onQuestionSuggestion?.(suggestion as { suggestedQuestionId: string; reasoning: string; confidence: number });
           }
         } catch (e) {
           console.error('[ai-processor] Question suggestion failed:', e instanceof Error ? e.message : e);
@@ -352,7 +352,7 @@ export class AIProcessor {
       }
 
       // Agenda item detection from topic shift response
-      if (result?.matchedAgendaItemId && result.agendaMatchConfidence > 0.7) {
+      if (result?.matchedAgendaItemId && (result.agendaMatchConfidence ?? 0) > 0.7) {
         const agenda = session.briefing?.agenda || [];
         const matchedItem = agenda.find((a: AgendaItem) => a.id === result.matchedAgendaItemId);
         if (matchedItem && matchedItem.status !== 'done') {
@@ -362,11 +362,11 @@ export class AIProcessor {
             sessionStore.updateAgendaItemStatus(this.sessionId, currentItem.id, 'done');
           }
           if (matchedItem.status !== 'in_progress') {
-            sessionStore.updateAgendaItemStatus(this.sessionId, result.matchedAgendaItemId, 'in_progress');
+            sessionStore.updateAgendaItemStatus(this.sessionId, result.matchedAgendaItemId!, 'in_progress');
           }
           this.callbacks.onAgendaDetected?.({
-            itemId: result.matchedAgendaItemId,
-            confidence: result.agendaMatchConfidence,
+            itemId: result.matchedAgendaItemId!,
+            confidence: result.agendaMatchConfidence ?? 0,
             reason: result.newTopic || result.previousTopic || '',
           });
         }
