@@ -503,8 +503,8 @@ export async function generateParticipantStatement(
   persona: AIParticipantPersona,
   customPrompt?: string
 ): Promise<AIParticipantStatement> {
-  const budget = TOKEN_BUDGETS.intervalSummary;
-  const truncated = truncateToTokenBudget(recentTranscript, budget.maxInputTokens, 'keep_end');
+  const budget = TOKEN_BUDGETS.aiParticipant;
+  const truncated = truncateToTokenBudget(recentTranscript, budget.maxInputTokens, 'keep_both');
 
   const text = await callClaude(
     sessionId,

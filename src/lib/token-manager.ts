@@ -56,6 +56,11 @@ export const TOKEN_BUDGETS = {
     maxInputTokens: 4_000,
     maxOutputTokens: 256,
   },
+  // AI Participant: needs summaries + recent transcript for rich context
+  aiParticipant: {
+    maxInputTokens: 16_000,   // ~5 summaries (~2K) + ~5min transcript (~6K) + session context
+    maxOutputTokens: 512,
+  },
 };
 
 /**

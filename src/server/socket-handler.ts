@@ -338,6 +338,9 @@ export function setupSocketHandlers(io: TypedServer): void {
 
       try {
         const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
+
+        // Build rich context: summaries for breadth + raw transcript for specifics
+        const summaries = sessionStore.getSummaries(sessionId);
         const recentTranscript = sessionStore.getRecentFinalTranscript(sessionId, 5 * 60 * 1000)
           .map((s) => `${s.speakerName}: ${s.text}`)
           .join('\n');
@@ -347,8 +350,20 @@ export function setupSocketHandlers(io: TypedServer): void {
           return;
         }
 
+        // Combine: previous summaries (compressed history) + recent raw transcript (specifics)
+        let fullContext = '';
+        if (summaries.length > 0) {
+          const summaryText = summaries
+            .slice(-5) // Last 5 summaries
+            .map((s) => s.content)
+            .join('\n\n');
+          fullContext = `SAMMANFATTNING AV SAMTALET HITTILLS:\n${summaryText}\n\n---\n\nSENASTE AVSNITTET (ordagrant):\n${recentTranscript}`;
+        } else {
+          fullContext = recentTranscript;
+        }
+
         const statement = await generateParticipantStatement(
-          sessionId, sessionContext, recentTranscript, persona, customPrompt
+          sessionId, sessionContext, fullContext, persona, customPrompt
         );
 
         // Send draft to moderator only
