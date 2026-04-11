@@ -423,6 +423,10 @@ export interface ServerToClientEvents {
   'agenda:item_updated': (data: { itemId: string; status: AgendaItemStatus; detectedByAi?: boolean }) => void;
   'agenda:current_detected': (data: { itemId: string; confidence: number; reason: string }) => void;
   'ai:question_suggestion': (data: { suggestedQuestionId: string; reasoning: string; confidence: number }) => void;
+  // AI Participant
+  'ai_participant:draft': (statement: AIParticipantStatement) => void;
+  'ai_participant:shown': (statement: AIParticipantStatement) => void;
+  'ai_participant:generating': (data: { persona: AIParticipantPersona }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -450,4 +454,59 @@ export interface ClientToServerEvents {
   'moderator:dismiss_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
   'moderator:set_projector_view': (data: { sessionId: string; view: string; secondary?: string; content?: string }) => void;
   'moderator:update_agenda_item': (data: { sessionId: string; itemId: string; status: AgendaItemStatus }) => void;
+  // AI Participant
+  'ai_participant:request': (data: { sessionId: string; persona: AIParticipantPersona; customPrompt?: string }) => void;
+  'ai_participant:approve': (data: { sessionId: string; statement: AIParticipantStatement }) => void;
+  'ai_participant:reject': (data: { sessionId: string; statementId: string }) => void;
+}
+
+// --- AI Participant ---
+
+export type AIParticipantPersona = 'critic' | 'synthesizer' | 'challenger' | 'researcher' | 'custom';
+
+export const AI_PARTICIPANT_PERSONAS: Record<AIParticipantPersona, {
+  label: string;
+  icon: string;
+  description: string;
+  shortDescription: string;
+}> = {
+  critic: {
+    label: 'Kritikern',
+    icon: '\uD83D\uDD25',
+    description: 'Skarpt ifragasattande, letar efter svagheter i argument',
+    shortDescription: 'Ifragasatter allt',
+  },
+  synthesizer: {
+    label: 'Syntesaren',
+    icon: '\uD83E\uDDE9',
+    description: 'Kopplar ihop tradar, ser monster och samband ingen annan sett',
+    shortDescription: 'Kopplar ihop',
+  },
+  challenger: {
+    label: 'Utmanaren',
+    icon: '\u26A1',
+    description: 'Provocerande, ber om bevis, testar pastaenden',
+    shortDescription: 'Provocerar',
+  },
+  researcher: {
+    label: 'Forskaren',
+    icon: '\uD83D\uDCDA',
+    description: 'Drar in data, fakta, historiska paralleller och bredare kunskap',
+    shortDescription: 'Tillfor fakta',
+  },
+  custom: {
+    label: 'Fri',
+    icon: '\u270D\uFE0F',
+    description: 'Skriv egna instruktioner for AI:ns rost',
+    shortDescription: 'Egen prompt',
+  },
+};
+
+export interface AIParticipantStatement {
+  id: string;
+  sessionId: string;
+  persona: AIParticipantPersona;
+  content: string;
+  status: 'pending' | 'approved' | 'rejected' | 'shown';
+  createdAt: Date;
 }

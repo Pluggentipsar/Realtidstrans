@@ -29,6 +29,11 @@ import {
 } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
 import { ExportPanel } from '@/components/ui/export-panel';
+import {
+  AIParticipantPersona,
+  AIParticipantStatement,
+  AI_PARTICIPANT_PERSONAS,
+} from '@/types';
 
 export default function ModeratorPage() {
   const params = useParams();
@@ -154,6 +159,15 @@ export default function ModeratorPage() {
       setQuestionSuggestion(data);
     });
 
+    // AI Participant
+    socket.on('ai_participant:draft', (statement) => {
+      setAiDraft(statement);
+      setIsGeneratingStatement(false);
+    });
+    socket.on('ai_participant:generating', () => {
+      setIsGeneratingStatement(true);
+    });
+
     return () => { socket.emit('session:leave', sessionId); socket.removeAllListeners(); };
   }, [sessionId]);
 
@@ -249,6 +263,33 @@ export default function ModeratorPage() {
   }, [sessionId]);
 
   const [pollError, setPollError] = useState('');
+
+  // AI Participant
+  const [selectedPersona, setSelectedPersona] = useState<AIParticipantPersona>('critic');
+  const [customPersonaPrompt, setCustomPersonaPrompt] = useState('');
+  const [aiDraft, setAiDraft] = useState<AIParticipantStatement | null>(null);
+  const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
+  const [showAiParticipant, setShowAiParticipant] = useState(false);
+  const requestAIStatement = useCallback(() => {
+    setIsGeneratingStatement(true);
+    setAiDraft(null);
+    socketRef.current.emit('ai_participant:request', {
+      sessionId,
+      persona: selectedPersona,
+      customPrompt: selectedPersona === 'custom' ? customPersonaPrompt : undefined,
+    });
+  }, [sessionId, selectedPersona, customPersonaPrompt]);
+
+  const approveAIStatement = useCallback(() => {
+    if (!aiDraft) return;
+    socketRef.current.emit('ai_participant:approve', { sessionId, statement: aiDraft });
+    setAiDraft(null);
+  }, [sessionId, aiDraft]);
+
+  const rejectAIStatement = useCallback(() => {
+    setAiDraft(null);
+  }, []);
+
   const createPoll = useCallback(() => {
     const validOptions = pollOptions.filter((o) => o.trim());
     if (!pollQuestion.trim()) { setPollError('Ange en fråga'); return; }
@@ -645,6 +686,95 @@ export default function ModeratorPage() {
                       <button onClick={() => setShowPollForm(false)} className="btn-ghost text-[11px]">{'\u2715'}</button>
                     </div>
                     {pollError && <p className="text-[11px]" style={{ color: 'var(--color-danger)' }}>{pollError}</p>}
+                  </div>
+                )}
+              </div>
+
+              {/* AI Participant */}
+              <div className="card" style={{ borderColor: showAiParticipant ? 'rgba(139,92,246,0.2)' : undefined }}>
+                <button onClick={() => setShowAiParticipant(!showAiParticipant)} className="w-full flex items-center justify-between">
+                  <h3 className="text-xs font-bold" style={{ color: 'var(--color-accent-ai, #8b5cf6)' }}>AI TAR ORDET</h3>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{showAiParticipant ? '\u25B2' : '\u25BC'}</span>
+                </button>
+
+                {showAiParticipant && (
+                  <div className="mt-3 space-y-2">
+                    {/* Persona selector */}
+                    <div className="flex flex-wrap gap-1">
+                      {(Object.entries(AI_PARTICIPANT_PERSONAS) as Array<[AIParticipantPersona, typeof AI_PARTICIPANT_PERSONAS['critic']]>).map(([key, p]) => (
+                        <button
+                          key={key}
+                          onClick={() => setSelectedPersona(key as AIParticipantPersona)}
+                          className="px-2 py-1 rounded-md text-xs transition-all"
+                          style={{
+                            background: selectedPersona === key ? 'rgba(139,92,246,0.15)' : 'var(--color-surface-raised)',
+                            color: selectedPersona === key ? '#a78bfa' : 'var(--color-text-secondary)',
+                            border: `1px solid ${selectedPersona === key ? 'rgba(139,92,246,0.3)' : 'var(--color-border)'}`,
+                          }}
+                          title={p.description}
+                        >
+                          {p.icon} {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom prompt (only for 'custom' persona) */}
+                    {selectedPersona === 'custom' && (
+                      <textarea
+                        className="textarea text-xs"
+                        rows={2}
+                        placeholder="Beskriv AI:ns roll och tonalitet..."
+                        value={customPersonaPrompt}
+                        onChange={(e) => setCustomPersonaPrompt(e.target.value)}
+                      />
+                    )}
+
+                    {/* Generate button */}
+                    <button
+                      onClick={requestAIStatement}
+                      disabled={isGeneratingStatement || (selectedPersona === 'custom' && !customPersonaPrompt.trim())}
+                      className="w-full py-2 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: isGeneratingStatement ? 'rgba(139,92,246,0.08)' : 'rgba(139,92,246,0.12)',
+                        color: '#a78bfa',
+                        border: '1px solid rgba(139,92,246,0.2)',
+                      }}
+                    >
+                      {isGeneratingStatement ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+                          AI tanker...
+                        </span>
+                      ) : (
+                        `${AI_PARTICIPANT_PERSONAS[selectedPersona].icon} Generera inlagg`
+                      )}
+                    </button>
+
+                    {/* Draft preview */}
+                    {aiDraft && (
+                      <div className="animate-slide-up rounded-lg p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-bold" style={{ color: '#a78bfa' }}>
+                            {AI_PARTICIPANT_PERSONAS[aiDraft.persona].icon} {AI_PARTICIPANT_PERSONAS[aiDraft.persona].label}
+                          </span>
+                          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Forhandsvisning</span>
+                        </div>
+                        <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+                          {aiDraft.content}
+                        </p>
+                        <div className="flex gap-2">
+                          <button onClick={approveAIStatement} className="flex-1 py-1.5 rounded-md text-xs font-medium" style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                            Visa pa projektor
+                          </button>
+                          <button onClick={rejectAIStatement} className="py-1.5 px-3 rounded-md text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            Kassera
+                          </button>
+                          <button onClick={requestAIStatement} className="py-1.5 px-3 rounded-md text-xs" style={{ color: '#a78bfa' }}>
+                            Ny
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

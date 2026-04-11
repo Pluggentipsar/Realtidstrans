@@ -8,6 +8,8 @@ import {
 import { sessionStore } from './session-store';
 import { TranscriptionSession } from '@/lib/azure-speech';
 import { AIProcessor } from './ai-processor';
+import { generateParticipantStatement } from '@/lib/claude-ai';
+import { buildSessionContext } from '@/lib/prompts/system';
 import { EngagementTracker } from './engagement-tracker';
 import { generateId } from '@/lib/utils';
 
@@ -324,6 +326,42 @@ export function setupSocketHandlers(io: TypedServer): void {
 
     socket.on('moderator:set_projector_view', ({ sessionId, view, secondary, content }) => {
       io.to(sessionId).emit('projector:set_view', { view, secondary, content });
+    });
+
+    // ===== AI Participant =====
+
+    socket.on('ai_participant:request', async ({ sessionId, persona, customPrompt }) => {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) return;
+
+      io.to(sessionId).emit('ai_participant:generating', { persona });
+
+      try {
+        const sessionContext = buildSessionContext(session.title, session.description, session.context, session.briefing);
+        const recentTranscript = sessionStore.getRecentFinalTranscript(sessionId, 5 * 60 * 1000)
+          .map((s) => `${s.speakerName}: ${s.text}`)
+          .join('\n');
+
+        if (!recentTranscript) {
+          socket.emit('session:error', { message: 'Inget transkript att basera inlagg pa', code: 'NO_TRANSCRIPT' });
+          return;
+        }
+
+        const statement = await generateParticipantStatement(
+          sessionId, sessionContext, recentTranscript, persona, customPrompt
+        );
+
+        // Send draft to moderator only
+        socket.emit('ai_participant:draft', statement);
+      } catch (e) {
+        console.error('[ai-participant] Generation failed:', e);
+        socket.emit('session:error', { message: 'Kunde inte generera AI-inlagg', code: 'AI_PARTICIPANT_FAILED' });
+      }
+    });
+
+    socket.on('ai_participant:approve', ({ sessionId, statement }) => {
+      // Broadcast approved statement to all clients (including projector)
+      io.to(sessionId).emit('ai_participant:shown', { ...statement, status: 'shown' });
     });
 
     // ===== Disconnect =====

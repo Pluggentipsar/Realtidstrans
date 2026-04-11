@@ -12,7 +12,8 @@ import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } 
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
 import { QuestionFocusSelector } from '@/components/ui/question-focus-selector';
 import { LiveSpeakerBar } from '@/components/ui/live-speaker-bar';
-import type { QuestionFocus, QuestionTarget, SpeakerAnalytics } from '@/types';
+import type { QuestionFocus, QuestionTarget, SpeakerAnalytics, AIParticipantStatement } from '@/types';
+import { AI_PARTICIPANT_PERSONAS } from '@/types';
 import {
   Session,
   TranscriptSegment,
@@ -149,6 +150,13 @@ export default function LiveSessionPage() {
         }));
       }
     });
+    // AI Participant
+    socket.on('ai_participant:shown', (statement) => {
+      setAiStatement(statement);
+      // Auto-dismiss after 30 seconds
+      setTimeout(() => setAiStatement(null), 30000);
+    });
+
     socket.on('session:speaker_identified', (speaker) => {
       setSession((p) => p ? { ...p, speakers: [...p.speakers.filter(s => s.id !== speaker.id), speaker] } : p);
     });
@@ -182,6 +190,7 @@ export default function LiveSessionPage() {
 
   const [audioError, setAudioError] = useState<string | null>(null);
   const [remoteViewCommand, setRemoteViewCommand] = useState<{ primary: string; secondary: string | null; v: number } | null>(null);
+  const [aiStatement, setAiStatement] = useState<AIParticipantStatement | null>(null);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -570,6 +579,53 @@ export default function LiveSessionPage() {
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>
       <AINotificationStack notifications={notifications} />
+
+      {/* AI Participant Statement Overlay */}
+      {aiStatement && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center animate-fade-in"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setAiStatement(null)}
+        >
+          <div
+            className="max-w-3xl mx-8 animate-slide-up"
+            style={{
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(6,6,10,0.95) 50%, rgba(217,119,6,0.05) 100%)',
+              border: '1px solid rgba(139,92,246,0.2)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '3rem',
+              boxShadow: '0 0 80px rgba(139,92,246,0.15), 0 32px 64px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                {AI_PARTICIPANT_PERSONAS[aiStatement.persona]?.icon || '\uD83E\uDD16'}
+              </div>
+              <div>
+                <div className="text-sm font-bold" style={{ color: '#a78bfa' }}>
+                  AI {AI_PARTICIPANT_PERSONAS[aiStatement.persona]?.label || 'Deltagare'}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>tar ordet</div>
+              </div>
+            </div>
+
+            {/* Statement */}
+            <p className="text-xl leading-relaxed" style={{ color: 'var(--color-text-primary)', lineHeight: '1.8' }}>
+              {aiStatement.content}
+            </p>
+
+            {/* Dismiss hint */}
+            <div className="mt-8 text-center">
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Klicka for att stanga</span>
+            </div>
+          </div>
+        </div>
+      )}
     </TextSizeProvider>
   );
 }

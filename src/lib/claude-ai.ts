@@ -8,8 +8,10 @@ import {
   QuotableMoment,
 } from '@/types';
 import type { QuestionFocusType } from '@/lib/prompts/system';
+import type { AIParticipantPersona, AIParticipantStatement } from '@/types';
 import {
   getSummaryPrompt,
+  getAIParticipantPrompt,
   getQuestionsPrompt,
   getAudienceClusterPrompt,
   getFinalSummaryPrompt,
@@ -67,6 +69,7 @@ const MODEL_ROUTING: Record<string, ModelTier> = {
   finalSummary_chunk: 'fast',    // Pre-summarization chunks
   audienceClustering: 'fast',    // Grouping task
   suggestQuestion: 'fast',       // Quick suggestion from prepared questions
+  aiParticipant: 'deep',         // AI takes the floor — needs Sonnet quality
 };
 
 function getModelForFunction(functionName: string): string {
@@ -488,5 +491,35 @@ export async function generateFinalSummary(
     id: generateId(), sessionId, content: text,
     type: type === 'chronological' ? 'final_chronological' : 'final_thematic',
     coveringFrom: 0, coveringTo: Date.now(), createdAt: new Date(),
+  };
+}
+
+// ===== AI Participant =====
+
+export async function generateParticipantStatement(
+  sessionId: string,
+  sessionContext: string,
+  recentTranscript: string,
+  persona: AIParticipantPersona,
+  customPrompt?: string
+): Promise<AIParticipantStatement> {
+  const budget = TOKEN_BUDGETS.intervalSummary;
+  const truncated = truncateToTokenBudget(recentTranscript, budget.maxInputTokens, 'keep_end');
+
+  const text = await callClaude(
+    sessionId,
+    'aiParticipant',
+    getAIParticipantPrompt(sessionContext, persona, customPrompt),
+    `Här är det senaste avsnittet av samtalet. Ta ordet:\n\n${truncated}`,
+    512
+  );
+
+  return {
+    id: generateId(),
+    sessionId,
+    persona,
+    content: text,
+    status: 'pending',
+    createdAt: new Date(),
   };
 }
