@@ -12,6 +12,7 @@ import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } 
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
 import { QuestionFocusSelector } from '@/components/ui/question-focus-selector';
 import { LiveSpeakerBar } from '@/components/ui/live-speaker-bar';
+import { QRCodeSVG } from 'qrcode.react';
 import type { QuestionFocus, QuestionTarget, SpeakerAnalytics, AIParticipantStatement } from '@/types';
 import { AI_PARTICIPANT_PERSONAS } from '@/types';
 import {
@@ -138,6 +139,11 @@ export default function LiveSessionPage() {
 
     // Listen for moderator projector commands
     socket.on('projector:set_view', ({ view, secondary }) => {
+      if (view === 'qr_code') {
+        setShowProjectorQR(true);
+        return;
+      }
+      setShowProjectorQR(false);
       const modeMap: Record<string, string> = {
         transcript: 'transcript', summary: 'summary', questions: 'questions',
         quotes: 'quotes', audience: 'audience',
@@ -200,6 +206,7 @@ export default function LiveSessionPage() {
   const [remoteViewCommand, setRemoteViewCommand] = useState<{ primary: string; secondary: string | null; v: number } | null>(null);
   const [aiStatement, setAiStatement] = useState<AIParticipantStatement | null>(null);
   const [aiInlineStatements, setAiInlineStatements] = useState<AIParticipantStatement[]>([]);
+  const [showProjectorQR, setShowProjectorQR] = useState(false);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -615,6 +622,37 @@ export default function LiveSessionPage() {
         {(focusMode) => renderContent(focusMode)}
       </PresentationView>
       <AINotificationStack notifications={notifications} />
+
+      {/* QR Code Overlay — triggered by moderator */}
+      {showProjectorQR && session && (
+        <div
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center animate-fade-in"
+          style={{ background: 'rgba(0,0,0,0.95)' }}
+          onClick={() => setShowProjectorQR(false)}
+        >
+          <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+            Gå med i samtalet
+          </h2>
+          <p className="text-sm mb-8" style={{ color: 'var(--color-text-secondary)' }}>
+            Skanna QR-koden eller ange koden nedan
+          </p>
+          <div className="p-6 rounded-3xl mb-6" style={{ background: 'white' }}>
+            <QRCodeSVG
+              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join?code=${session.code}`}
+              size={280}
+              level="H"
+              bgColor="white"
+              fgColor="#1a1000"
+            />
+          </div>
+          <div className="text-6xl font-mono font-bold tracking-[0.4em] mb-4" style={{ color: 'var(--color-accent)' }}>
+            {session.code}
+          </div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Tryck var som helst för att stänga
+          </p>
+        </div>
+      )}
 
       {/* AI Participant Statement Overlay */}
       {aiStatement && (

@@ -30,7 +30,7 @@ import {
 import { formatTimestamp } from '@/lib/utils';
 import { ExportPanel } from '@/components/ui/export-panel';
 import { SpeakerManager } from '@/components/ui/speaker-manager';
-import { SessionQR } from '@/components/ui/qr-code';
+// QR displayed on projector, not in moderator view
 import {
   AIParticipantPersona,
   AIParticipantStatement,
@@ -328,7 +328,7 @@ export default function ModeratorPage() {
           <span className="text-sm font-bold">{session.title}</span>
           <span className="text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded" style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)', border: '1px solid rgba(217,119,6,0.1)' }}>MODERATOR</span>
           {isLive && <span className="badge-live text-xs">LIVE</span>}
-          <SessionQR sessionCode={session.code} />
+          <span className="font-mono text-xs" style={{ color: 'var(--color-accent)' }}>{session.code}</span>
         </div>
 
         {/* Center: mode buttons */}
@@ -367,6 +367,14 @@ export default function ModeratorPage() {
           ) : (
             <button onClick={stopSession} className="btn-danger text-xs py-1.5 px-3">Avsluta</button>
           )}
+          <button
+            onClick={() => socketRef.current.emit('moderator:set_projector_view', { sessionId, view: 'qr_code' })}
+            className="text-xs py-1.5 px-3 rounded-lg font-medium transition-all"
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}
+            title="Visa QR-kod och sessionskod på projektorn"
+          >
+            QR
+          </button>
           <a href={`/session/${sessionId}`} target="_blank" rel="noopener noreferrer" className="text-xs py-1.5 px-3 rounded-lg font-medium transition-all" style={{ background: 'var(--color-accent)', color: 'white' }}>&#x1F4FA; Projektor</a>
           <a href={`/session/${sessionId}/dashboard`} className="btn-ghost text-xs">Dashboard</a>
         </div>
