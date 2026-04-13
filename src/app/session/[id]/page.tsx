@@ -151,10 +151,14 @@ export default function LiveSessionPage() {
       }
     });
     // AI Participant
-    socket.on('ai_participant:shown', (statement) => {
-      setAiStatement(statement);
-      // Auto-dismiss after 30 seconds
-      setTimeout(() => setAiStatement(null), 30000);
+    socket.on('ai_participant:shown', ({ statement, displayMode }) => {
+      if (displayMode === 'fullscreen') {
+        setAiStatement(statement);
+        setTimeout(() => setAiStatement(null), 30000);
+      } else {
+        // Inline: add as a special transcript segment
+        setAiInlineStatements((prev) => [...prev, statement]);
+      }
     });
 
     socket.on('session:speaker_identified', (speaker) => {
@@ -191,6 +195,7 @@ export default function LiveSessionPage() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [remoteViewCommand, setRemoteViewCommand] = useState<{ primary: string; secondary: string | null; v: number } | null>(null);
   const [aiStatement, setAiStatement] = useState<AIParticipantStatement | null>(null);
+  const [aiInlineStatements, setAiInlineStatements] = useState<AIParticipantStatement[]>([]);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -271,6 +276,33 @@ export default function LiveSessionPage() {
                 <p className="leading-relaxed">{seg.text}</p>
               </div>
             ))}
+
+            {/* Inline AI statements — appear as a distinct voice in the transcript */}
+            {aiInlineStatements.map((stmt) => (
+              <div
+                key={stmt.id}
+                className="transcript-line animate-slide-up"
+                style={{
+                  borderLeftColor: '#8b5cf6',
+                  background: 'rgba(139,92,246,0.04)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.75rem 1rem',
+                  margin: '0.5rem 0',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#8b5cf6' }} />
+                    <span className="speaker-name" style={{ color: '#8b5cf6' }}>
+                      AI {AI_PARTICIPANT_PERSONAS[stmt.persona]?.label || 'Deltagare'}
+                    </span>
+                  </div>
+                  <span className="text-lg">{AI_PARTICIPANT_PERSONAS[stmt.persona]?.icon}</span>
+                </div>
+                <p className="leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{stmt.content}</p>
+              </div>
+            ))}
+
             <div ref={transcriptEndRef} />
           </div>
         );

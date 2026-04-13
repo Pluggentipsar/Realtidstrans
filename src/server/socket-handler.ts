@@ -374,9 +374,12 @@ export function setupSocketHandlers(io: TypedServer): void {
       }
     });
 
-    socket.on('ai_participant:approve', ({ sessionId, statement }) => {
+    socket.on('ai_participant:approve', ({ sessionId, statement, displayMode }) => {
       // Broadcast approved statement to all clients (including projector)
-      io.to(sessionId).emit('ai_participant:shown', { ...statement, status: 'shown' });
+      io.to(sessionId).emit('ai_participant:shown', {
+        statement: { ...statement, status: 'shown' },
+        displayMode: displayMode || 'fullscreen',
+      });
     });
 
     // ===== Disconnect =====

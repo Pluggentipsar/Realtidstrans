@@ -425,7 +425,7 @@ export interface ServerToClientEvents {
   'ai:question_suggestion': (data: { suggestedQuestionId: string; reasoning: string; confidence: number }) => void;
   // AI Participant
   'ai_participant:draft': (statement: AIParticipantStatement) => void;
-  'ai_participant:shown': (statement: AIParticipantStatement) => void;
+  'ai_participant:shown': (data: { statement: AIParticipantStatement; displayMode: 'inline' | 'fullscreen' }) => void;
   'ai_participant:generating': (data: { persona: AIParticipantPersona }) => void;
 }
 
@@ -456,7 +456,7 @@ export interface ClientToServerEvents {
   'moderator:update_agenda_item': (data: { sessionId: string; itemId: string; status: AgendaItemStatus }) => void;
   // AI Participant
   'ai_participant:request': (data: { sessionId: string; persona: AIParticipantPersona; customPrompt?: string }) => void;
-  'ai_participant:approve': (data: { sessionId: string; statement: AIParticipantStatement }) => void;
+  'ai_participant:approve': (data: { sessionId: string; statement: AIParticipantStatement; displayMode: 'inline' | 'fullscreen' }) => void;
   'ai_participant:reject': (data: { sessionId: string; statementId: string }) => void;
 }
 

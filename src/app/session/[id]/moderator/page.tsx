@@ -280,9 +280,9 @@ export default function ModeratorPage() {
     });
   }, [sessionId, selectedPersona, customPersonaPrompt]);
 
-  const approveAIStatement = useCallback(() => {
+  const approveAIStatement = useCallback((displayMode: 'inline' | 'fullscreen') => {
     if (!aiDraft) return;
-    socketRef.current.emit('ai_participant:approve', { sessionId, statement: aiDraft });
+    socketRef.current.emit('ai_participant:approve', { sessionId, statement: aiDraft, displayMode });
     setAiDraft(null);
   }, [sessionId, aiDraft]);
 
@@ -762,16 +762,23 @@ export default function ModeratorPage() {
                         <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--color-text-secondary)' }}>
                           {aiDraft.content}
                         </p>
-                        <div className="flex gap-2">
-                          <button onClick={approveAIStatement} className="flex-1 py-1.5 rounded-md text-xs font-medium" style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.2)' }}>
-                            Visa pa projektor
-                          </button>
-                          <button onClick={rejectAIStatement} className="py-1.5 px-3 rounded-md text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            Kassera
-                          </button>
-                          <button onClick={requestAIStatement} className="py-1.5 px-3 rounded-md text-xs" style={{ color: '#a78bfa' }}>
-                            Ny
-                          </button>
+                        <div className="space-y-1.5">
+                          <div className="flex gap-1.5">
+                            <button onClick={() => approveAIStatement('inline')} className="flex-1 py-1.5 rounded-md text-xs font-medium" style={{ background: 'rgba(34,197,94,0.08)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.15)' }}>
+                              I flodet
+                            </button>
+                            <button onClick={() => approveAIStatement('fullscreen')} className="flex-1 py-1.5 rounded-md text-xs font-medium" style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
+                              Storskarm
+                            </button>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button onClick={requestAIStatement} className="flex-1 py-1.5 rounded-md text-xs" style={{ color: '#a78bfa' }}>
+                              Generera ny
+                            </button>
+                            <button onClick={rejectAIStatement} className="flex-1 py-1.5 rounded-md text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                              Kassera
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
