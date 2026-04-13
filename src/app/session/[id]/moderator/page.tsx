@@ -30,6 +30,7 @@ import {
 import { formatTimestamp } from '@/lib/utils';
 import { ExportPanel } from '@/components/ui/export-panel';
 import { SpeakerManager } from '@/components/ui/speaker-manager';
+import { SessionQR } from '@/components/ui/qr-code';
 import {
   AIParticipantPersona,
   AIParticipantStatement,
@@ -327,7 +328,7 @@ export default function ModeratorPage() {
           <span className="text-sm font-bold">{session.title}</span>
           <span className="text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded" style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)', border: '1px solid rgba(217,119,6,0.1)' }}>MODERATOR</span>
           {isLive && <span className="badge-live text-xs">LIVE</span>}
-          <button onClick={() => navigator.clipboard.writeText(session.code)} className="font-mono text-sm font-bold px-2 py-0.5 rounded transition-all hover:opacity-70" style={{ color: 'var(--color-accent)', background: 'var(--color-accent-subtle)' }} title="Kopiera kod">{session.code}</button>
+          <SessionQR sessionCode={session.code} />
         </div>
 
         {/* Center: mode buttons */}

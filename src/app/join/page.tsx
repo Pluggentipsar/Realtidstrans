@@ -1,11 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function JoinPage() {
+function JoinForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [code, setCode] = useState('');
+
+  // Pre-fill code from URL parameter (?code=123456)
+  useEffect(() => {
+    const urlCode = searchParams.get('code');
+    if (urlCode && /^\d{6}$/.test(urlCode)) {
+      setCode(urlCode);
+    }
+  }, [searchParams]);
   const [error, setError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
@@ -86,5 +95,13 @@ export default function JoinPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div style={{ color: 'var(--color-text-muted)' }}>Laddar...</div></div>}>
+      <JoinForm />
+    </Suspense>
   );
 }

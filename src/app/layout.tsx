@@ -40,7 +40,7 @@ export default function RootLayout({
               </Link>
               <div className="flex items-center gap-1">
                 <Link href="/join" className="px-4 py-1.5 text-[13px] rounded-lg transition-all duration-200 font-medium" style={{ background: 'var(--color-accent)', color: '#1a1000' }}>
-                  Ga med
+                  Gå med
                 </Link>
                 <Link href="/sessions" className="px-3 py-1.5 text-[13px] rounded-lg transition-all duration-200 hover:bg-white/[0.04]" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                   Sessioner

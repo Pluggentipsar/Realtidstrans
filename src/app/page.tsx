@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QROverlay } from '@/components/ui/qr-code';
 
 // ── Demo data ──────────────────────────────────────────────
 const SPEAKERS = {
@@ -298,35 +298,24 @@ export default function Home() {
         </h1>
 
         <p className="text-lg max-w-lg mx-auto mb-8 animate-slide-up stagger-2" style={{ color: 'var(--color-text-secondary)', lineHeight: '1.6' }}>
-          AI-drivet samtalsstod for live-event. Transkribering, sammanfattningar,
-          fordjupningsfragor och publikinteraktion.
+          AI-drivet samtalsstöd för live-event. Transkribering, sammanfattningar,
+          fördjupningsfrågor och publikinteraktion.
         </p>
 
         {/* Primary CTA: Join as audience */}
         <div className="flex flex-col items-center gap-6 mb-8 animate-slide-up stagger-3">
           <Link href="/join" className="btn-primary text-lg px-14 py-5" style={{ fontSize: '1.1rem' }}>
-            Ga med som publik
+            Gå med som publik
           </Link>
 
-          {/* QR code */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="p-4 rounded-2xl" style={{ background: 'white' }}>
-              <QRCodeSVG
-                value={typeof window !== 'undefined' ? `${window.location.origin}/join` : 'https://realtidstrans.se/join'}
-                size={160}
-                level="M"
-                bgColor="white"
-                fgColor="#1a1000"
-              />
-            </div>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Skanna for att ga med</p>
-          </div>
+          {/* QR code — clickable to enlarge */}
+          <QROverlay url={typeof window !== 'undefined' ? `${window.location.origin}/join` : '/join'} label="Skanna för att gå med" />
         </div>
 
         {/* Secondary: Create session (small, for moderators) */}
         <div className="animate-slide-up stagger-4">
           <Link href="/session/new" className="btn-ghost text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Ar du moderator? Skapa en session →
+            Är du moderator? Skapa en session →
           </Link>
         </div>
       </div>
@@ -367,14 +356,14 @@ export default function Home() {
             <div className="hero-glow" style={{ background: 'radial-gradient(circle, rgba(217,119,6,0.08) 0%, transparent 70%)', top: '-250px', left: '50%', marginLeft: '-300px', width: '600px', height: '600px' }} />
           </div>
           <h2 className="relative text-3xl sm:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
-            Ga med i samtalet
+            Gå med i samtalet
           </h2>
           <p className="relative text-[15px] mb-8" style={{ color: 'var(--color-text-secondary)' }}>
-            Stall fragor, reagera och paverka diskussionen — direkt fran din telefon.
+            Ställ frågor, reagera och påverka diskussionen — direkt från din telefon.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/join" className="relative btn-primary text-base px-12 py-4">
-              Ga med som publik
+              Gå med som publik
             </Link>
             <Link href="/session/new" className="relative btn-ghost text-sm px-6 py-4" style={{ color: 'var(--color-text-muted)' }}>
               Skapa session (moderator)
