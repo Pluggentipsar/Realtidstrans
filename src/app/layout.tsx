@@ -38,15 +38,15 @@ export default function RootLayout({
               <Link href="/" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }} className="text-base font-bold text-white">
                 Realtids<span style={{ color: 'var(--color-accent)' }}>trans</span>
               </Link>
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-1">
+                <Link href="/join" className="px-4 py-1.5 text-[13px] rounded-lg transition-all duration-200 font-medium" style={{ background: 'var(--color-accent)', color: '#1a1000' }}>
+                  Ga med
+                </Link>
                 <Link href="/sessions" className="px-3 py-1.5 text-[13px] rounded-lg transition-all duration-200 hover:bg-white/[0.04]" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                   Sessioner
                 </Link>
                 <Link href="/session/new" className="px-3 py-1.5 text-[13px] rounded-lg transition-all duration-200 hover:bg-white/[0.04]" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                   Ny session
-                </Link>
-                <Link href="/join" className="px-3 py-1.5 text-[13px] rounded-lg transition-all duration-200 hover:bg-white/[0.04]" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
-                  Gå med
                 </Link>
               </div>
             </div>
