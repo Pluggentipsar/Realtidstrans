@@ -96,6 +96,73 @@ export default function NewSessionPage() {
   const removeQuestion = (id: string) => setPreparedQuestions(preparedQuestions.filter((q) => q.id !== id));
   const updateQuestion = (id: string, updates: Partial<PreparedQuestion>) => setPreparedQuestions(preparedQuestions.map((q) => q.id === id ? { ...q, ...updates } : q));
 
+  // Bulk import state
+  const [showBulkAgenda, setShowBulkAgenda] = useState(false);
+  const [bulkAgendaText, setBulkAgendaText] = useState('');
+  const [showBulkQuestions, setShowBulkQuestions] = useState(false);
+  const [bulkQuestionsText, setBulkQuestionsText] = useState('');
+
+  const parseBulkAgenda = () => {
+    const lines = bulkAgendaText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const newItems: AgendaItem[] = lines.map((line, i) => {
+      // Strip leading numbering: "1. ", "1) ", "- ", "* "
+      let cleaned = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '');
+      // Extract duration if present: "(10 min)", "(15m)", "10min"
+      let duration: number | undefined;
+      const durMatch = cleaned.match(/\(?\s*(\d+)\s*(?:min|m)\s*\)?/i);
+      if (durMatch) {
+        duration = parseInt(durMatch[1]);
+        cleaned = cleaned.replace(durMatch[0], '').trim();
+      }
+      // Split on " - " or " — " for title/description
+      const parts = cleaned.split(/\s*[-—]\s*(.+)/);
+      return {
+        id: generateId(),
+        title: parts[0].trim(),
+        description: parts[1]?.trim() || '',
+        durationMinutes: duration,
+        order: agenda.length + i + 1,
+        status: 'upcoming' as const,
+      };
+    }).filter((item) => item.title);
+    setAgenda([...agenda, ...newItems]);
+    setBulkAgendaText('');
+    setShowBulkAgenda(false);
+  };
+
+  const parseBulkQuestions = () => {
+    const lines = bulkQuestionsText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const newQuestions: PreparedQuestion[] = lines.map((line) => {
+      // Strip leading numbering/bullets
+      let cleaned = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '');
+      // Strip surrounding quotes
+      cleaned = cleaned.replace(/^[""](.+)[""]$/, '$1');
+      // Detect priority hints
+      let priority: PreparedQuestion['priority'] = 'nice_to_ask';
+      if (/(!|\bviktig\b|\bmåste\b|\bkritisk\b)/i.test(cleaned)) {
+        priority = 'must_ask';
+        cleaned = cleaned.replace(/\s*!+\s*$/, '');
+      }
+      // Detect target: "(till Erik)" or "→ Erik"
+      let targetSpeaker: string | undefined;
+      const targetMatch = cleaned.match(/\s*(?:\(till\s+(.+?)\)|→\s*(.+?))\s*$/i);
+      if (targetMatch) {
+        targetSpeaker = (targetMatch[1] || targetMatch[2]).trim();
+        cleaned = cleaned.replace(targetMatch[0], '').trim();
+      }
+      return {
+        id: generateId(),
+        question: cleaned,
+        targetSpeaker,
+        priority,
+        status: 'pending' as const,
+      };
+    }).filter((q) => q.question);
+    setPreparedQuestions([...preparedQuestions, ...newQuestions]);
+    setBulkQuestionsText('');
+    setShowBulkQuestions(false);
+  };
+
   const addSpeaker = () => setSpeakerBios([...speakerBios, { name: '', title: '', organization: '', expertise: '' }]);
   const removeSpeaker = (idx: number) => setSpeakerBios(speakerBios.filter((_, i) => i !== idx));
   const updateSpeaker = (idx: number, updates: Partial<SpeakerBio>) => setSpeakerBios(speakerBios.map((s, i) => i === idx ? { ...s, ...updates } : s));
@@ -184,7 +251,34 @@ export default function NewSessionPage() {
                   <button type="button" onClick={() => removeAgendaItem(item.id)} className="btn-ghost text-xs mt-2" style={{ color: 'var(--color-danger)' }}>Ta bort</button>
                 </div>
               ))}
-              <button type="button" onClick={addAgendaItem} className="btn-ghost text-[13px]" style={{ color: 'var(--color-accent-hover)' }}>+ Lägg till punkt</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={addAgendaItem} className="btn-ghost text-[13px]" style={{ color: 'var(--color-accent-hover)' }}>+ Lagg till punkt</button>
+                <button type="button" onClick={() => setShowBulkAgenda(!showBulkAgenda)} className="btn-ghost text-[13px]" style={{ color: 'var(--color-accent-ai, #8b5cf6)' }}>
+                  {showBulkAgenda ? 'Avbryt' : 'Klistra in flera'}
+                </button>
+              </div>
+              {showBulkAgenda && (
+                <div className="mt-2 space-y-2 animate-slide-up">
+                  <textarea
+                    className="textarea text-sm"
+                    rows={6}
+                    placeholder={"Klistra in dagordningen, en punkt per rad:\n\n1. Introduktion (10 min)\n2. Huvudamne - Beskrivning av amnet (15 min)\n3. Diskussion\n4. Avslutning (5 min)"}
+                    value={bulkAgendaText}
+                    onChange={(e) => setBulkAgendaText(e.target.value)}
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                      {bulkAgendaText.split('\n').filter((l) => l.trim()).length} punkter detekterade
+                    </p>
+                    <button type="button" onClick={parseBulkAgenda} disabled={!bulkAgendaText.trim()} className="btn-primary text-xs py-1.5 px-4">
+                      Lagg till alla
+                    </button>
+                  </div>
+                  <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                    Tips: Numrering och tidsangivelser (10 min) parsas automatiskt. Anvand &quot;-&quot; for att separera titel och beskrivning.
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>Undvik dessa ämnen</label>
@@ -245,7 +339,34 @@ export default function NewSessionPage() {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addQuestion} className="btn-secondary text-[13px] w-full">+ Lägg till fråga</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={addQuestion} className="btn-ghost text-[13px] flex-1" style={{ color: 'var(--color-accent-hover)' }}>+ Lagg till fraga</button>
+              <button type="button" onClick={() => setShowBulkQuestions(!showBulkQuestions)} className="btn-ghost text-[13px] flex-1" style={{ color: 'var(--color-accent-ai, #8b5cf6)' }}>
+                {showBulkQuestions ? 'Avbryt' : 'Klistra in flera'}
+              </button>
+            </div>
+            {showBulkQuestions && (
+              <div className="mt-2 space-y-2 animate-slide-up">
+                <textarea
+                  className="textarea text-sm"
+                  rows={6}
+                  placeholder={"Klistra in fragor, en per rad:\n\nHur paverkar AI likvardigheten?\nVilken evidens finns for att AI forbattrar inlarning? (till Erik)\nVarfor har inte fler skolor infort AI-policy?!\nHur ser det ut i andra lander? → Karin"}
+                  value={bulkQuestionsText}
+                  onChange={(e) => setBulkQuestionsText(e.target.value)}
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                    {bulkQuestionsText.split('\n').filter((l) => l.trim()).length} fragor detekterade
+                  </p>
+                  <button type="button" onClick={parseBulkQuestions} disabled={!bulkQuestionsText.trim()} className="btn-primary text-xs py-1.5 px-4">
+                    Lagg till alla
+                  </button>
+                </div>
+                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  Tips: ! i slutet = &quot;maste stallas&quot;. &quot;(till Erik)&quot; eller &quot;→ Erik&quot; riktar fragan.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
