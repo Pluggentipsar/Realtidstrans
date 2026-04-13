@@ -29,6 +29,7 @@ import {
 } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
 import { ExportPanel } from '@/components/ui/export-panel';
+import { SpeakerManager } from '@/components/ui/speaker-manager';
 import {
   AIParticipantPersona,
   AIParticipantStatement,
@@ -140,6 +141,9 @@ export default function ModeratorPage() {
     });
     socket.on('session:speaker_identified', (speaker) => {
       setSession((p) => p ? { ...p, speakers: [...p.speakers.filter(s => s.id !== speaker.id), speaker] } : p);
+      setTranscript((prev) => prev.map((seg) =>
+        seg.speakerId === speaker.id ? { ...seg, speakerName: speaker.name } : seg
+      ));
     });
     socket.on('session:error', (err) => {
       console.error('Session error:', err);
@@ -457,6 +461,22 @@ export default function ModeratorPage() {
               {/* Recording */}
               {(recording.isRecording || recording.hasRecording) && (
                 <RecordingControls isRecording={recording.isRecording} hasRecording={recording.hasRecording} duration={recording.duration} blobUrl={recording.blobUrl} onStop={() => recording.stopRecording()} onDownload={() => recording.downloadRecording()} />
+              )}
+
+              {/* Speaker identification */}
+              {session.speakers.length > 0 && (
+                <SpeakerManager
+                  speakers={session.speakers}
+                  speakerBios={session.briefing?.speakerBios || []}
+                  onRenameSpeaker={(speakerId, newName) => {
+                    socketRef.current.emit('moderator:rename_speaker', { sessionId, speakerId, newName });
+                    // Optimistic update
+                    setSession((prev) => prev ? {
+                      ...prev,
+                      speakers: prev.speakers.map((s) => s.id === speakerId ? { ...s, name: newName } : s),
+                    } : prev);
+                  }}
+                />
               )}
             </div>
           </div>

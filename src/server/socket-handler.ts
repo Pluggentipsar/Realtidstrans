@@ -324,6 +324,18 @@ export function setupSocketHandlers(io: TypedServer): void {
       io.to(sessionId).emit('agenda:item_updated', { itemId, status, detectedByAi: false });
     });
 
+    socket.on('moderator:rename_speaker', ({ sessionId, speakerId, newName }) => {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) return;
+      const speaker = session.speakers.find((s) => s.id === speakerId);
+      if (speaker) {
+        speaker.name = newName;
+        // Broadcast updated speaker to all clients so transcript updates everywhere
+        io.to(sessionId).emit('session:speaker_identified', speaker);
+        console.log(`[moderator] Renamed speaker ${speakerId} to "${newName}"`);
+      }
+    });
+
     socket.on('moderator:set_projector_view', ({ sessionId, view, secondary, content }) => {
       io.to(sessionId).emit('projector:set_view', { view, secondary, content });
     });

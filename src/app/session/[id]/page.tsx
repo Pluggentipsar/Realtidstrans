@@ -163,6 +163,10 @@ export default function LiveSessionPage() {
 
     socket.on('session:speaker_identified', (speaker) => {
       setSession((p) => p ? { ...p, speakers: [...p.speakers.filter(s => s.id !== speaker.id), speaker] } : p);
+      // Retroactively update transcript entries with new speaker name
+      setTranscript((prev) => prev.map((seg) =>
+        seg.speakerId === speaker.id ? { ...seg, speakerName: speaker.name } : seg
+      ));
     });
     socket.on('session:error', (err) => {
       console.error('Session error:', err);

@@ -454,6 +454,7 @@ export interface ClientToServerEvents {
   'moderator:dismiss_question': (data: { sessionId: string; questionId: string; source: 'ai' | 'audience' }) => void;
   'moderator:set_projector_view': (data: { sessionId: string; view: string; secondary?: string; content?: string }) => void;
   'moderator:update_agenda_item': (data: { sessionId: string; itemId: string; status: AgendaItemStatus }) => void;
+  'moderator:rename_speaker': (data: { sessionId: string; speakerId: string; newName: string }) => void;
   // AI Participant
   'ai_participant:request': (data: { sessionId: string; persona: AIParticipantPersona; customPrompt?: string }) => void;
   'ai_participant:approve': (data: { sessionId: string; statement: AIParticipantStatement; displayMode: 'inline' | 'fullscreen' }) => void;
