@@ -290,28 +290,66 @@ export default function LiveSessionPage() {
   // Render content for each focus mode
   const renderContent = (mode: string) => {
     switch (mode) {
-      case 'transcript':
+      case 'transcript': {
+        // Show only the last N final segments for projector clarity
+        const finalSegments = transcript.filter((s) => s.isFinal);
+        const visibleCount = 6; // Show last 6 final lines
+        const visible = finalSegments.slice(-visibleCount);
+        // Current partial (live typing)
+        const currentPartial = transcript.filter((s) => !s.isFinal).slice(-1)[0];
+
         return (
-          <div className="space-y-1">
+          <div className="flex flex-col justify-end min-h-[50vh]">
             {transcript.length === 0 && (
               <p className="text-center py-20" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                 {isLive ? 'Väntar på tal...' : 'Starta sessionen för att börja transkribera'}
               </p>
             )}
-            {transcript.map((seg, idx) => (
-              <div key={seg.id} className={`transcript-line ${!seg.isFinal ? 'opacity-40' : ''} ${idx === transcript.length - 1 && seg.isFinal ? 'transcript-line-new' : ''}`} style={seg.isFinal ? { borderLeftColor: session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)' } : {}}>
-                <div className="flex items-center gap-2 mb-0.5">
-                  {(() => { const speakerColor = session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)'; return (
-                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: speakerColor }} /><span className="speaker-name" style={{ color: speakerColor }}>{seg.speakerName}</span></div>
-                  ); })()}
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{formatTimestamp(seg.timestamp)}</span>
-                </div>
-                <p className="leading-relaxed">{seg.text}</p>
-              </div>
-            ))}
 
-            {/* Inline AI statements — appear as a distinct voice in the transcript */}
-            {aiInlineStatements.map((stmt) => (
+            <div className="space-y-3">
+              {visible.map((seg, idx) => {
+                const speakerColor = session.speakers.find((s) => s.id === seg.speakerId)?.color || 'var(--color-accent)';
+                const isLatest = idx === visible.length - 1;
+                // Older lines fade out
+                const opacity = 0.3 + (idx / visible.length) * 0.7;
+
+                return (
+                  <div
+                    key={seg.id}
+                    className={`transcript-line ${isLatest ? 'transcript-line-new' : ''}`}
+                    style={{
+                      borderLeftColor: speakerColor,
+                      opacity,
+                      transition: 'opacity 0.5s ease',
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: speakerColor }} />
+                        <span className="speaker-name text-sm font-bold" style={{ color: speakerColor }}>{seg.speakerName}</span>
+                      </div>
+                    </div>
+                    <p className="leading-relaxed text-lg">{seg.text}</p>
+                  </div>
+                );
+              })}
+
+              {/* Live typing indicator — partial result */}
+              {currentPartial && (
+                <div className="transcript-line animate-fade-in" style={{ borderLeftColor: 'var(--color-text-muted)', opacity: 0.5 }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--color-text-muted)' }} />
+                      <span className="speaker-name text-sm" style={{ color: 'var(--color-text-muted)' }}>{currentPartial.speakerName}</span>
+                    </div>
+                    <div className="typing-indicator"><span></span><span></span><span></span></div>
+                  </div>
+                  <p className="leading-relaxed text-lg" style={{ color: 'var(--color-text-secondary)' }}>{currentPartial.text}</p>
+                </div>
+              )}
+
+              {/* AI inline statements */}
+              {aiInlineStatements.map((stmt) => (
               <div
                 key={stmt.id}
                 className="transcript-line animate-slide-up"
@@ -337,8 +375,10 @@ export default function LiveSessionPage() {
             ))}
 
             <div ref={transcriptEndRef} />
+            </div>
           </div>
         );
+      }
 
       case 'summary':
         return (
