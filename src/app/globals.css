@@ -664,3 +664,61 @@
   0%, 60%, 100% { transform: translateY(0); }
   30% { transform: translateY(-3px); }
 }
+
+/* ============================================================
+   NEW CONTENT INDICATOR
+   Glowing border that fades out after appearing
+   ============================================================ */
+
+@keyframes new-content-glow {
+  0% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 20px rgba(217, 119, 6, 0.15);
+  }
+  70% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 12px rgba(217, 119, 6, 0.08);
+  }
+  100% {
+    border-color: var(--glass-border, rgba(255,255,255,0.06));
+    box-shadow: none;
+  }
+}
+
+.new-content {
+  animation: new-content-glow 8s ease-out forwards;
+  border-width: 1px;
+  border-style: solid;
+}
+
+/* AI-specific glow (purple) */
+@keyframes new-ai-glow {
+  0% {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.12);
+  }
+  70% {
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.05);
+  }
+  100% {
+    border-color: var(--glass-border, rgba(255,255,255,0.06));
+    box-shadow: none;
+  }
+}
+
+.new-ai-content {
+  animation: new-ai-glow 8s ease-out forwards;
+  border-width: 1px;
+  border-style: solid;
+}
+
+/* "NEW" badge that fades out */
+@keyframes badge-fade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.new-badge {
+  animation: badge-fade 10s ease-out forwards;
+}

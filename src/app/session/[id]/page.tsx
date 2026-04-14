@@ -10,6 +10,7 @@ import { PresentationView } from '@/components/ui/presentation-view';
 import { AudioVisualizer, AudioLevelIndicator } from '@/components/ui/audio-visualizer';
 import { AIStatusBar, AINotificationStack, useAINotifications, AIProcessState } from '@/components/ui/ai-status';
 import { useRecording, RecordingControls } from '@/components/ui/recording-manager';
+import { useNewItems } from '@/components/ui/use-new-items';
 import { QuestionFocusSelector } from '@/components/ui/question-focus-selector';
 import { LiveSpeakerBar } from '@/components/ui/live-speaker-bar';
 import { QRCodeSVG } from 'qrcode.react';
@@ -81,6 +82,8 @@ export default function LiveSessionPage() {
   const [pollOptions, setPollOptions] = useState(['', '']);
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const summaryEndRef = useRef<HTMLDivElement>(null);
+  const questionsEndRef = useRef<HTMLDivElement>(null);
   const audioCaptureRef = useRef<AudioCapture | null>(null);
   const socketRef = useRef(getSocket());
 
@@ -104,16 +107,19 @@ export default function LiveSessionPage() {
     });
     socket.on('ai:summary', (s) => {
       setSummaries((p) => [...p, s]);
+      newSummaries.markNew(s.id);
       setAiStates((p) => p.filter((st) => st !== 'summarizing'));
       addNotification('summary', 'Ny sammanfattning klar');
     });
     socket.on('ai:questions', (q) => {
       setAiQuestions((p) => [...p, ...q]);
+      newQuestions.markManyNew(q.map((x: { id: string }) => x.id));
       setAiStates((p) => p.filter((st) => st !== 'generating_questions'));
       addNotification('questions', `${q.length} nya fördjupningsfrågor`);
     });
     socket.on('ai:quotes', (q) => {
       setQuotes((p) => [...p, ...q]);
+      newQuotes.markManyNew(q.map((x: { id: string }) => x.id));
       setAiStates((p) => p.filter((st) => st !== 'extracting_quotes'));
       if (q.length > 0) addNotification('quotes', `${q.length} citat extraherade`);
     });
@@ -189,6 +195,19 @@ export default function LiveSessionPage() {
     }
   }, [transcript]);
 
+  // Auto-scroll summaries and questions when new ones arrive
+  useEffect(() => {
+    if (summaryEndRef.current && summaryEndRef.current.offsetParent !== null) {
+      summaryEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [summaries]);
+
+  useEffect(() => {
+    if (questionsEndRef.current && questionsEndRef.current.offsetParent !== null) {
+      questionsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [aiQuestions]);
+
   // Offline buffering
   useEffect(() => {
     const onOffline = () => audioCaptureRef.current?.startBuffering();
@@ -207,6 +226,9 @@ export default function LiveSessionPage() {
   const [aiStatement, setAiStatement] = useState<AIParticipantStatement | null>(null);
   const [aiInlineStatements, setAiInlineStatements] = useState<AIParticipantStatement[]>([]);
   const [showProjectorQR, setShowProjectorQR] = useState(false);
+  const newSummaries = useNewItems(10000);
+  const newQuestions = useNewItems(10000);
+  const newQuotes = useNewItems(10000);
 
   const startSession = useCallback(async () => {
     setAudioError(null);
@@ -326,14 +348,16 @@ export default function LiveSessionPage() {
             )}
             {summaries.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>Sammanfattningar genereras automatiskt</p>}
             {summaries.map((s) => (
-              <div key={s.id} className="animate-slide-up" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.5rem' }}>
+              <div key={s.id} className={`animate-slide-up rounded-lg ${newSummaries.isNew(s.id) ? 'new-content' : ''}`} style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.5rem', padding: newSummaries.isNew(s.id) ? '1rem' : undefined }}>
                 <div className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
                   <span>{formatTimestamp(s.coveringFrom)} - {formatTimestamp(s.coveringTo)}</span>
                   {s.topicLabel && <span className="badge-accent">{s.topicLabel}</span>}
+                  {newSummaries.isNew(s.id) && <span className="new-badge text-xs font-bold" style={{ color: 'var(--color-accent)' }}>NY</span>}
                 </div>
                 <div className="leading-relaxed prose prose-invert prose-sm max-w-none" style={{ fontFamily: 'var(--font-body)' }}><ReactMarkdown>{s.content}</ReactMarkdown></div>
               </div>
             ))}
+            <div ref={summaryEndRef} />
             {gapAnalysis && (
               <div className="card-glow" style={{ borderColor: 'var(--color-warning)' }}>
                 <h3 className="font-bold mb-2" style={{ color: 'var(--color-warning)' }}>Vad har vi missat?</h3>
@@ -348,9 +372,10 @@ export default function LiveSessionPage() {
           <div className="space-y-5">
             {aiQuestions.length === 0 && <p className="text-center py-20" style={{ color: 'var(--color-text-muted)' }}>AI-frågor visas här under sessionen</p>}
             {aiQuestions.map((q) => (
-              <div key={q.id} className="animate-slide-up" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.25rem' }}>
+              <div key={q.id} className={`animate-slide-up rounded-lg ${newQuestions.isNew(q.id) ? 'new-ai-content' : ''}`} style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '1.25rem', padding: newQuestions.isNew(q.id) ? '1rem' : undefined }}>
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <span className="badge-accent">{QUESTION_CATEGORY_LABELS[q.category]}</span>
+                  {newQuestions.isNew(q.id) && <span className="new-badge text-xs font-bold" style={{ color: '#a78bfa' }}>NY</span>}
                   {q.targetSpeaker && (
                     <span className="badge-muted" style={{ borderColor: 'var(--color-accent)' }}>
                       &#x1F3AF; {q.targetSpeaker}
@@ -367,6 +392,7 @@ export default function LiveSessionPage() {
                 <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{q.context}</p>
               </div>
             ))}
+            <div ref={questionsEndRef} />
           </div>
         );
 
